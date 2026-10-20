@@ -38,6 +38,7 @@ public struct FolderSummary: Sendable {
     public var recent: [FileItem] = []
     public var images: [FileItem] = []
     public var imageCount = 0
+    public var childCount = 0
     public var readme: String?
     public var isComplete = false
     public var hitLimit = false
@@ -51,10 +52,14 @@ public struct FolderSummary: Sendable {
 public struct FolderTally {
     public static let listLimit = 100
     public static let imageLimit = 120
+    public static let childLimit = 500
 
     private var summary = FolderSummary()
     private var kinds: [FileKind: KindTotal] = [:]
-    private var children: [String: FileItem] = [:]
+    private var folders: [String: FileItem] = [:]
+    private var topFiles: [FileItem] = []
+    private var topFileCount = 0
+    private var kindCache: [String: FileKind] = [:]
     private var largest: [FileItem] = []
     private var recent: [FileItem] = []
     private var images: [FileItem] = []
@@ -71,15 +76,23 @@ public struct FolderTally {
             return
         }
 
-        summary.totalSize += item.size
-        mergeChild(top, size: item.size, modified: item.modified, isDirectory: !isTopLevel, count: 1)
+        summary.totalSize = summary.totalSize.saturatingAdd(item.size)
+        if isTopLevel {
+            topFiles.append(item)
+            topFileCount += 1
+            if topFiles.count > Self.childLimit * 4 { trim() }
+        } else {
+            mergeChild(top, size: item.size, modified: item.modified, isDirectory: true, count: 1)
+        }
 
         guard !item.isHidden else { return }
         summary.fileCount += 1
         if let modified = item.modified, modified > (summary.latestModified ?? .distantPast) { summary.latestModified = modified }
-        let kind = item.kind
-        kinds[kind, default: KindTotal(kind: kind, count: 0, size: 0)].count += 1
-        kinds[kind]?.size += item.size
+        let kind = kind(of: item)
+        var total = kinds[kind] ?? KindTotal(kind: kind, count: 0, size: 0)
+        total.count += 1
+        total.size = total.size.saturatingAdd(item.size)
+        kinds[kind] = total
         if isTopLevel, summary.readme == nil || item.name.lowercased().hasSuffix(".md"), Self.isReadme(item.name) {
             summary.readme = item.path
         }
@@ -100,7 +113,8 @@ public struct FolderTally {
         var result = copy.summary
         result.isComplete = complete
         result.kinds = kinds.values.sorted { ($0.size, $1.kind.rawValue) > ($1.size, $0.kind.rawValue) }
-        result.children = children.values.sorted { $0.size > $1.size }
+        result.children = Array((Array(folders.values) + copy.topFiles).sorted { $0.size > $1.size }.prefix(Self.childLimit))
+        result.childCount = folders.count + topFileCount
         result.largest = copy.largest
         result.recent = copy.recent
         result.images = images.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
@@ -113,12 +127,20 @@ public struct FolderTally {
         return (lower as NSString).deletingPathExtension == "readme" && ["", "md", "markdown", "txt"].contains(ext)
     }
 
+    private mutating func kind(of item: FileItem) -> FileKind {
+        let ext = (item.path as NSString).pathExtension.lowercased()
+        if let cached = kindCache[ext] { return cached }
+        let kind = FileKind(fileExtension: ext)
+        kindCache[ext] = kind
+        return kind
+    }
+
     private mutating func mergeChild(_ name: String, size: Int64, modified: Date?, isDirectory: Bool, count: Int) {
-        let existing = children[name]
+        let existing = folders[name]
         let latest = [existing?.modified, modified].compactMap { $0 }.max()
-        children[name] = FileItem(
+        folders[name] = FileItem(
             path: name,
-            size: (existing?.size ?? 0) + size,
+            size: (existing?.size ?? 0).saturatingAdd(size),
             modified: latest,
             isDirectory: (existing?.isDirectory ?? false) || isDirectory,
             itemCount: (existing?.itemCount ?? 0) + count
@@ -128,6 +150,7 @@ public struct FolderTally {
     private mutating func trim() {
         largest = Array(largest.sorted { $0.size > $1.size }.prefix(Self.listLimit))
         recent = Array(recent.sorted { ($0.modified ?? .distantPast) > ($1.modified ?? .distantPast) }.prefix(Self.listLimit))
+        topFiles = Array(topFiles.sorted { $0.size > $1.size }.prefix(Self.childLimit))
     }
 }
 
@@ -145,7 +168,7 @@ public enum FolderScanner {
     public static let skippedFolders: Set<String> = {
         let home = getpwuid(getuid()).map { String(cString: $0.pointee.pw_dir) } ?? NSHomeDirectory()
         let library = [
-            "CloudStorage", "Mobile Documents", "Containers", "Group Containers", "Daemon Containers", "Mail", "Messages",
+            "CloudStorage", "Mobile Documents", "Photos", "Containers", "Group Containers", "Daemon Containers", "Mail", "Messages",
             "Safari", "Calendars", "Reminders", "Cookies", "HomeKit", "Suggestions", "Accounts", "Sharing", "Biome",
             "IdentityServices", "PersonalizationPortrait", "Metadata/CoreSpotlight", "Application Support/AddressBook",
             "Application Support/CallHistoryDB", "Application Support/CallHistoryTransactions", "Application Support/com.apple.TCC",
@@ -206,7 +229,7 @@ public enum FolderScanner {
                 let path = relativePath(of: url, under: rootPaths)
                 if isDirectory && values?.isPackage == true {
                     package = (FileItem(path: path, size: 0, modified: nil, isDirectory: false), level)
-                    if url.pathExtension == "photoslibrary" { walker.skipDescendants() }
+                    if ["photoslibrary", "musiclibrary"].contains(url.pathExtension) { walker.skipDescendants() }
                 } else {
                     if isDirectory, skippedFolders.contains(url.path) { walker.skipDescendants() }
                     tally.add(FileItem(path: path, size: isDirectory ? 0 : size, modified: modified, isDirectory: isDirectory))
@@ -224,7 +247,15 @@ public enum FolderScanner {
 
     static func relativePath(of url: URL, under rootPaths: Set<String>) -> String {
         let path = url.path
-        guard let root = rootPaths.first(where: { path.hasPrefix($0 + "/") }) else { return url.lastPathComponent }
-        return String(path.dropFirst(root.count + 1))
+        let prefixes = rootPaths.map { $0.hasSuffix("/") ? $0 : $0 + "/" }
+        guard let prefix = prefixes.first(where: { path.hasPrefix($0) }) else { return url.lastPathComponent }
+        return String(path.dropFirst(prefix.count))
+    }
+}
+
+extension Int64 {
+    func saturatingAdd(_ other: Int64) -> Int64 {
+        let (sum, overflow) = addingReportingOverflow(other)
+        return overflow ? .max : sum
     }
 }

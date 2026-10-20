@@ -130,7 +130,7 @@ public enum GitReader {
         guard meta.count >= 4 else { return nil }
         let message = String(line[line.index(after: tab)...])
         let subject = message.split(separator: ":", maxSplits: 1).last.map { $0.trimmingCharacters(in: .whitespaces) } ?? message
-        let nameEnd = meta.firstIndex { $0.hasPrefix("<") } ?? 2
+        let nameEnd = max(2, meta.firstIndex { $0.hasPrefix("<") } ?? 2)
         return GitCommit(
             hash: head ?? String(meta[1]),
             subject: subject,
@@ -163,6 +163,7 @@ public enum GitReader {
         var low = first == 0 ? 0 : Int(data.uint32(at: 8 + (first - 1) * 4))
         var high = Int(data.uint32(at: 8 + first * 4))
         let names = 8 + 256 * 4
+        guard high <= total, low <= high, data.count >= names + total * 28 else { return nil }
         while low < high {
             let mid = (low + high) / 2
             let start = names + mid * 20
@@ -172,6 +173,7 @@ public enum GitReader {
                 let small = data.uint32(at: offsets + mid * 4)
                 guard small & 0x8000_0000 != 0 else { return UInt64(small) }
                 let large = offsets + total * 4 + Int(small & 0x7FFF_FFFF) * 8
+                guard large + 8 <= data.count else { return nil }
                 return UInt64(data.uint32(at: large)) << 32 | UInt64(data.uint32(at: large + 4))
             }
             if candidate.lexicographicallyPrecedes(sha) { low = mid + 1 } else { high = mid }
@@ -188,11 +190,13 @@ public enum GitReader {
         var shift = 4
         while byte & 0x80 != 0 {
             position += 1
+            guard position < data.endIndex, shift <= 28 else { return nil }
             byte = data[position]
             size |= Int(byte & 0x7F) << shift
             shift += 7
         }
         position += 1
+        guard size <= 16 << 20, position < data.endIndex else { return nil }
         let end = min(data.endIndex, position + size + 4096)
         return inflate(data.subdata(in: position..<end), capacity: size)
     }
@@ -234,6 +238,7 @@ public enum GitReader {
             let sha = index.subdata(in: index.startIndex + position + 40..<index.startIndex + position + 60)
             let flags = UInt16(index[index.startIndex + position + 60]) << 8 | UInt16(index[index.startIndex + position + 61])
             let extended = version == 3 && flags & 0x4000 != 0
+            guard position + (extended ? 64 : 62) <= index.count else { return nil }
             let extraFlags: UInt16 = extended
                 ? UInt16(index[index.startIndex + position + 62]) << 8 | UInt16(index[index.startIndex + position + 63])
                 : 0
@@ -256,7 +261,11 @@ public enum GitReader {
                 modified += 1
             } else if UInt32(truncatingIfNeeded: info.st_mtimespec.tv_sec) != mtime
                         || (mtimeNanos != 0 && UInt32(truncatingIfNeeded: info.st_mtimespec.tv_nsec) != mtimeNanos) {
-                if mode & 0o170000 == 0o120000 || blobHash(root.appending(path: path), size: Int(size)) != sha { modified += 1 }
+                if mode & 0o170000 == 0o120000 {
+                    modified += 1
+                } else if let hash = blobHash(root.appending(path: path), size: Int(size)), hash != sha {
+                    modified += 1
+                }
             }
         }
         return GitStatus(modified: modified, deleted: deleted)

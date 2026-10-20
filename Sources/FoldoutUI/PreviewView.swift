@@ -88,7 +88,13 @@ public struct PreviewView: View {
 
             Group {
                 switch selected {
-                case .contents: FileTable(items: model.summary?.children ?? [], showsFolder: false, initialSort: .size)
+                case .contents:
+                    VStack(alignment: .leading, spacing: 6) {
+                        FileTable(items: model.summary?.children ?? [], showsFolder: false, initialSort: .size)
+                        if let summary = model.summary, summary.childCount > summary.children.count {
+                            Text("Showing the \(summary.children.count) largest of \(summary.childCount.formatted()) items").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 case .largest: FileTable(items: model.summary?.largest ?? [], showsFolder: true, initialSort: .size)
                 case .recent: FileTable(items: model.summary?.recent ?? [], showsFolder: true, initialSort: .modified)
                 case .readme: MarkdownView(blocks: model.readme).clipShape(RoundedRectangle(cornerRadius: 8))

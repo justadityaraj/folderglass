@@ -102,13 +102,17 @@ public enum MarkdownDocument {
         return nil
     }
 
+    static let htmlTag = #"</?(p|img|div|br|hr|a|span|picture|source|details|summary|sub|sup|center|b|i|em|strong|h[1-6]|table|thead|tbody|tr|td|th|kbd|video)(\s[^>]*)?/?>"#
+
     static func stripHTML(_ source: String) -> String {
         var inFence = false
         return source.components(separatedBy: "\n").compactMap { line -> String? in
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { inFence.toggle() }
-            guard !inFence else { return line }
-            let cleaned = line.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            guard !inFence, !line.hasPrefix("    "), !line.hasPrefix("\t") else { return line }
+            let cleaned = line.components(separatedBy: "`").enumerated().map { index, part in
+                index.isMultiple(of: 2) ? part.replacingOccurrences(of: htmlTag, with: "", options: [.regularExpression, .caseInsensitive]) : part
+            }.joined(separator: "`")
             if cleaned.trimmingCharacters(in: .whitespaces).isEmpty && !trimmed.isEmpty { return nil }
             return cleaned
         }.joined(separator: "\n")
