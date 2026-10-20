@@ -1,0 +1,97 @@
+# Foldout Folder Preview for Mac
+
+**See what's inside a folder without opening it.** Foldout is a free, open-source Quick Look extension for macOS. Select a folder in Finder, press Space, and you get its real size, what kind of files fill it, the biggest and newest files, and for code projects the git branch, last commit and rendered README.
+
+Use it to:
+
+- find out what's eating space in a folder, subfolders included, before you open it
+- see which files changed most recently in a project or download folder
+- check a repo's branch, last commit and uncommitted changes from Finder
+- read a project's README without opening an editor
+- flip through a folder of photos as a thumbnail grid
+- look inside a `.zip` without unpacking it, and preview Markdown files with headings, lists, code and tables
+
+**[Download Foldout](../../releases/latest)** · [Website](https://dev.adityarajsingh.com/foldout/)
+
+<p align="center">
+  <img src="docs/repo-readme.png" width="720" alt="Foldout previewing a code project: size and file-type bar, git branch with two modified files, last commit, and the rendered README">
+</p>
+
+## Features
+
+- **Real folder size.** Counts every file in every subfolder, scanned in the background so Finder never waits. Results fill in as the scan runs.
+- **File-type breakdown.** A bar shows how much space video, images, code, documents, archives and audio take.
+- **Contents, Largest, Recent.** Sortable tables of the folder's items with their full sizes, the 100 largest files anywhere inside, and the 100 most recently changed.
+- **Git at a glance.** Branch, last commit, author, and how many tracked files are modified or deleted. Linked worktrees work too.
+- **README inside the preview.** Headings, lists, code blocks, quotes and tables, rendered offline.
+- **Image grid.** Folders that are mostly pictures open straight to thumbnails.
+- **Zip contents.** Press Space on a `.zip` to see its files, sizes and type breakdown.
+- **Markdown files.** `.md` files get the same renderer as READMEs.
+- **Light and dark mode,** Apple Silicon and Intel, macOS 14 Sonoma or later.
+- **Private by design.** No network access, no analytics, read-only. Foldout never writes to the folders you preview.
+
+<p align="center">
+  <img src="docs/photos.png" width="420" alt="A folder of product photos shown as a thumbnail grid in dark mode">
+  <img src="docs/largest.png" width="420" alt="The Largest tab listing the biggest files across all subfolders">
+</p>
+
+## Install
+
+### Option 1: Homebrew (recommended, no security prompt)
+
+Homebrew builds Foldout on your own Mac, so macOS never blocks it.
+
+```bash
+brew install justadityaraj/tap/foldout
+ln -sf "$(brew --prefix)/opt/foldout/Foldout.app" /Applications/Foldout.app
+open /Applications/Foldout.app
+```
+
+Opening Foldout once switches the Quick Look extension on. Update later with `brew upgrade foldout`.
+
+### Option 2: Download the app
+
+1. Download `Foldout.dmg` from the [latest release](../../releases/latest).
+2. Open it and drag Foldout into Applications.
+3. Open Foldout. macOS says **"Foldout.app" Not Opened** because the app isn't notarized by Apple. Click **Done**.
+4. Open **System Settings → Privacy & Security**, scroll down to **Security**, and click **Open Anyway** next to the Foldout message. Confirm with Touch ID or your password, then click **Open**.
+5. Foldout's window shows **Quick Look extension is on**. You only do this once.
+
+Now select any folder in Finder and press Space.
+
+## Troubleshooting
+
+**Another app's preview shows up instead.** macOS uses one Quick Look extension per file type. Open **System Settings → General → Login Items & Extensions → Quick Look** and turn off the other folder preview extensions, or click **Extension Settings…** in Foldout.
+
+**Nothing changed after installing.** Open Foldout once, then run `qlmanage -r` in Terminal to reset Quick Look's cache.
+
+**The scan says it stopped early.** Foldout stops after 15 seconds or a million items so huge folders like your whole home folder stay responsive. Everything counted so far is shown.
+
+**Some folders show fewer files than expected.** macOS keeps data from other apps, Mail, Messages and cloud-drive folders private, so Foldout skips them instead of asking for access.
+
+## Build from source
+
+You need the Xcode Command Line Tools or Xcode 16 or later (Swift 6).
+
+```bash
+git clone https://github.com/justadityaraj/foldout-folder-preview.git
+cd foldout-folder-preview
+./scripts/build.sh --install
+```
+
+`build.sh` runs the self-check and builds universal release binaries. It packages the app and its Quick Look extension as `build/Foldout.app`. `--install` copies it to `/Applications` and turns the extension on. `--release` also writes `build/Foldout.dmg` and `build/Foldout.zip`.
+
+| Path | Contents |
+| --- | --- |
+| `Sources/FoldoutCore` | Folder scanning, git reading, zip listing and Markdown parsing. No UI. |
+| `Sources/FoldoutUI` | The SwiftUI preview shared by the extension and the snapshot tool. |
+| `Sources/FoldoutPreview` | The Quick Look extension. |
+| `Sources/Foldout` | The app that installs and switches on the extension. |
+| `Sources/FoldoutSelfCheck` | Checks for the core logic. Run with `swift run FoldoutSelfCheck`. |
+| `Sources/FoldoutSnapshots` | Renders a preview to PNG: `swift run FoldoutSnapshots <path> out.png [light\|dark]`. |
+
+`swift scripts/demo-data.swift build/demo` makes the sample folders used in the screenshots.
+
+## License
+
+[MIT](LICENSE)
