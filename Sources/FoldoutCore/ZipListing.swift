@@ -1,9 +1,10 @@
 import Foundation
 
 public enum ZipListing {
-    public static func summary(of url: URL) -> FolderSummary? {
-        guard let items = entries(of: url).map(unwrappingSingleFolder) else { return nil }
+    public static func summary(of url: URL, limits: ScanLimits = ScanLimits()) -> FolderSummary? {
+        guard let items = entries(of: url, limit: limits.maxItems).map(unwrappingSingleFolder) else { return nil }
         var tally = FolderTally()
+        if items.count >= limits.maxItems { tally.markLimitHit() }
         var folders = Set<String>()
         for item in items where item.isDirectory { folders.insert(item.path) }
         for item in items {
@@ -14,7 +15,7 @@ public enum ZipListing {
         }
         for folder in folders.sorted() { tally.add(FileItem(path: folder, size: 0, modified: nil, isDirectory: true)) }
         for item in items where !item.isDirectory { tally.add(item) }
-        return tally.snapshot(complete: true)
+        return tally.snapshot(complete: items.count < limits.maxItems)
     }
 
     static func unwrappingSingleFolder(_ items: [FileItem]) -> [FileItem] {
@@ -27,11 +28,12 @@ public enum ZipListing {
         }
     }
 
-    public static func entries(of url: URL) -> [FileItem]? {
+    public static func entries(of url: URL, limit: Int = ScanLimits().maxItems) -> [FileItem]? {
         guard let data = try? Data(contentsOf: url, options: .alwaysMapped), let directory = centralDirectory(in: data) else { return nil }
         var items: [FileItem] = []
         var position = directory.offset
         for _ in 0..<directory.count {
+            if Task.isCancelled || items.count >= limit { break }
             guard position + 46 <= data.count, data.le32(at: position) == 0x0201_4B50 else { break }
             let time = data.le16(at: position + 12)
             let date = data.le16(at: position + 14)
@@ -49,7 +51,7 @@ public enum ZipListing {
             let isDirectory = rawName.hasSuffix("/")
             let path = isDirectory ? String(rawName.dropLast()) : rawName
             guard !path.isEmpty else { continue }
-            items.append(FileItem(path: path, size: isDirectory ? 0 : Int64(size), modified: dosDate(date: date, time: time), isDirectory: isDirectory))
+            items.append(FileItem(path: path, size: isDirectory ? 0 : Int64(clamping: size), modified: dosDate(date: date, time: time), isDirectory: isDirectory))
         }
         return items
     }
@@ -63,10 +65,9 @@ public enum ZipListing {
         var count = Int(data.le16(at: position + 10))
         var offset = Int(data.le32(at: position + 16))
         if (count == 0xFFFF || offset == 0xFFFF_FFFF), position >= 20, data.le32(at: position - 20) == 0x0706_4B50 {
-            let record = Int(data.le64(at: position - 12))
-            if record + 56 <= data.count, data.le32(at: record) == 0x0606_4B50 {
-                count = Int(data.le64(at: record + 32))
-                offset = Int(data.le64(at: record + 48))
+            if let record = Int(exactly: data.le64(at: position - 12)), record <= data.count - 56, data.le32(at: record) == 0x0606_4B50 {
+                count = Int(clamping: data.le64(at: record + 32))
+                offset = Int(clamping: data.le64(at: record + 48))
             }
         }
         return offset < data.count ? (offset, count) : nil
@@ -77,6 +78,7 @@ public enum ZipListing {
         while position + 4 <= extraStart + length {
             let id = data.le16(at: position)
             let size = Int(data.le16(at: position + 2))
+            guard position + 4 + size <= extraStart + length else { return nil }
             if id == 0x0001, size >= 8 { return data.le64(at: position + 4) }
             position += 4 + size
         }

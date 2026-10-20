@@ -153,6 +153,38 @@ check(kinds.contains(.rule), "thematic break")
 check(blocks.contains { $0.kind == .tableRow(header: true) && $0.cells.count == 2 }, "table header row with two cells")
 check(blocks.contains { $0.kind == .tableRow(header: false) && $0.cells.map { String($0.characters) } == ["a", "1"] }, "table body row cells")
 
+let tricky = MarkdownDocument.blocks(from: "Use `Result<Value, Error>` here.\n\nSee <https://example.com> and if a < b and c > d.\n\n    Array<Int>\n\n<div align=\"center\">Centered</div>")
+let trickyText = tricky.map(\.plainText).joined(separator: "|")
+check(trickyText.contains("Result<Value, Error>"), "generics inside inline code survive (got \(trickyText))")
+check(trickyText.contains("example.com"), "autolinks survive")
+check(trickyText.contains("a < b and c > d"), "comparison operators survive")
+check(trickyText.contains("Array<Int>"), "indented code survives")
+check(trickyText.contains("Centered") && !trickyText.contains("<div"), "known html tags are still stripped")
+
+let rootChildren = FolderScanner.scan(root, limits: ScanLimits(maxItems: 50))
+check(rootChildren.childCount >= rootChildren.children.count, "child count covers listed children")
+
+var flat = FolderTally()
+for index in 0..<(FolderTally.childLimit + 50) { flat.add(FileItem(path: "f\(index).txt", size: Int64(index), modified: nil, isDirectory: false)) }
+flat.add(FileItem(path: "huge.bin", size: .max, modified: nil, isDirectory: false))
+let flatSummary = flat.snapshot(complete: true)
+check(flatSummary.children.count == FolderTally.childLimit && flatSummary.childCount == FolderTally.childLimit + 51, "top-level list is capped but counted")
+check(flatSummary.children.first?.path == "huge.bin" && flatSummary.totalSize == .max, "sizes saturate instead of overflowing")
+
+let badGit = root.appending(path: "badgit")
+write("ref: refs/heads/main\n", to: badGit.appending(path: ".git/HEAD"))
+write("<x 0000 1 +0000\tcommit: broken\n", to: badGit.appending(path: ".git/logs/HEAD"))
+try? Data([0x44, 0x49, 0x52, 0x43, 0, 0, 0, 3, 0, 0, 0, 1] + [UInt8](repeating: 0, count: 60) + [0x40, 0]).write(to: badGit.appending(path: ".git/index"))
+try? FileManager.default.createDirectory(at: badGit.appending(path: ".git/objects/pack"), withIntermediateDirectories: true)
+try? Data([0xFF, 0x74, 0x4F, 0x63, 0, 0, 0, 2] + [UInt8](repeating: 0xFF, count: 1100)).write(to: badGit.appending(path: ".git/objects/pack/x.idx"))
+write("0123456789012345678901234567890123456789 refs/heads/main\n", to: badGit.appending(path: ".git/packed-refs"))
+check(GitReader.read(badGit)?.branch == "main", "truncated index, bad pack index and odd reflog don't crash")
+
+var zipBytes = Data([0x50, 0x4B, 0x06, 0x07, 0, 0, 0, 0] + [UInt8](repeating: 0xFF, count: 8) + [1, 0, 0, 0])
+zipBytes += Data([0x50, 0x4B, 0x05, 0x06, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0])
+try? zipBytes.write(to: root.appending(path: "bad.zip"))
+check(ZipListing.summary(of: root.appending(path: "bad.zip")).map { $0.fileCount == 0 } ?? true, "zip64 offsets past the file don't crash")
+
 if failures == 0 {
     print("All checks passed")
 } else {

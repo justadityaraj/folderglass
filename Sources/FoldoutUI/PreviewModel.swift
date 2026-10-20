@@ -49,7 +49,8 @@ public final class PreviewModel: ObservableObject {
             readme = await Task.detached { Self.markdown(at: url) }.value
             readmeName = url.lastPathComponent
         case .zip:
-            summary = await Task.detached { ZipListing.summary(of: url) }.value
+            let job = Task.detached { ZipListing.summary(of: url) }
+            summary = await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
             failed = summary == nil
         case .folder:
             async let details: (GitInfo?, String?, [MarkdownBlock]) = Task.detached { Self.details(of: url) }.value
@@ -65,6 +66,7 @@ public final class PreviewModel: ObservableObject {
             self.git = git
             self.readmeName = readmeName
             self.readme = readme
+            var timer: Task<Void, Never>?
             let finished: FolderSummary? = await withTaskCancellationHandler {
                 await withCheckedContinuation { continuation in
                     var resumed = false
@@ -74,7 +76,7 @@ public final class PreviewModel: ObservableObject {
                         continuation.resume(returning: result)
                     }
                     Task { @MainActor in finish(await scan.value) }
-                    Task { @MainActor in
+                    timer = Task { @MainActor in
                         try? await Task.sleep(for: .seconds(limits.maxDuration + 2))
                         finish(nil)
                     }
@@ -82,6 +84,7 @@ public final class PreviewModel: ObservableObject {
             } onCancel: {
                 scan.cancel()
             }
+            timer?.cancel()
             scanFinished = true
             if let finished {
                 summary = finished
