@@ -11,7 +11,9 @@ Use it to:
 - flip through a folder of photos as a thumbnail grid
 - look inside a `.zip` without unpacking it, and preview Markdown files with headings, lists, code and tables
 
-**[Download Foldout](../../releases/latest)** · [Website](https://dev.adityarajsingh.com/foldout/)
+**[Download Foldout](../../releases/latest)** · [Website](https://dev.adityarajsingh.com/foldout/) · [Compare Quick Look folder apps](https://dev.adityarajsingh.com/foldout/comparison/)
+
+https://github.com/user-attachments/assets/46c7f1b5-e3a5-4444-9831-12e947595291
 
 <p align="center">
   <img src="docs/repo-readme.png" width="720" alt="Foldout previewing a code project: size and file-type bar, git branch with two modified files, last commit, and the rendered README">
