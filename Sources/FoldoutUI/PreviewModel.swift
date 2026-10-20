@@ -49,14 +49,14 @@ public final class PreviewModel: ObservableObject {
             readme = await Task.detached { Self.markdown(at: url) }.value
             readmeName = url.lastPathComponent
         case .zip:
-            let job = Task.detached { ZipListing.summary(of: url) }
+            let job = Task.detached(priority: .utility) { ZipListing.summary(of: url) }
             summary = await withTaskCancellationHandler { await job.value } onCancel: { job.cancel() }
             failed = summary == nil
         case .folder:
             async let details: (GitInfo?, String?, [MarkdownBlock]) = Task.detached { Self.details(of: url) }.value
             let limits = ScanLimits()
-            let scan = Task.detached { [weak self] in
-                FolderScanner.scan(url, limits: limits) { partial in
+            let scan = Task.detached(priority: .utility) { [weak self] in
+                FolderScanner.scan(url, limits: limits, progressInterval: 0.5) { partial in
                     Task { @MainActor in
                         if self?.scanFinished == false { self?.summary = partial }
                     }
