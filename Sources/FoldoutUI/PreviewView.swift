@@ -33,6 +33,7 @@ public struct PreviewView: View {
         }
         .frame(minWidth: 520, minHeight: 360)
         .background(Color(nsColor: .windowBackgroundColor))
+
     }
 
     private var availableTabs: [Tab] {
@@ -174,75 +175,126 @@ struct GitCard: View {
 }
 
 struct FileTable: View {
-    enum SortKey { case name, size, modified }
+    enum SortKey { case name, folder, size, items, modified }
 
     let items: [FileItem]
     let showsFolder: Bool
-    @State private var order: [KeyPathComparator<FileItem>]
+    @State private var key: SortKey
+    @State private var ascending: Bool
 
     init(items: [FileItem], showsFolder: Bool, initialSort: SortKey) {
         self.items = items
         self.showsFolder = showsFolder
-        switch initialSort {
-        case .name: _order = State(initialValue: [KeyPathComparator(\FileItem.name)])
-        case .size: _order = State(initialValue: [KeyPathComparator(\FileItem.size, order: .reverse)])
-        case .modified: _order = State(initialValue: [KeyPathComparator(\FileItem.sortDate, order: .reverse)])
+        _key = State(initialValue: initialSort)
+        _ascending = State(initialValue: initialSort == .name || initialSort == .folder)
+    }
+
+    private var columns: [SortKey] { showsFolder ? [.name, .folder, .size, .modified] : [.name, .size, .items, .modified] }
+
+    private var sorted: [FileItem] {
+        let ordered: [FileItem]
+        switch key {
+        case .name: ordered = items.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        case .folder: ordered = items.sorted { $0.folder.localizedStandardCompare($1.folder) == .orderedAscending }
+        case .size: ordered = items.sorted { $0.size < $1.size }
+        case .items: ordered = items.sorted { $0.itemCount < $1.itemCount }
+        case .modified: ordered = items.sorted { $0.sortDate < $1.sortDate }
         }
+        return ascending ? ordered : ordered.reversed()
     }
 
     var body: some View {
-        if showsFolder {
-            Table(items.sorted(using: order), sortOrder: $order) {
-                TableColumn("Name", value: \.name) { NameCell(item: $0) }.width(min: 160, ideal: 240)
-                TableColumn("Folder", value: \.folder) { item in
-                    Text(item.folder).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                ForEach(columns, id: \.self) { column in
+                    Button {
+                        if key == column { ascending.toggle() } else { key = column; ascending = column == .name || column == .folder }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if Self.trailing(column) { Spacer(minLength: 0) }
+                            Text(Self.title(column)).fontWeight(key == column ? .semibold : .regular)
+                            if key == column { Image(systemName: ascending ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)) }
+                            if !Self.trailing(column) { Spacer(minLength: 0) }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .modifier(ColumnWidth(column: column))
                 }
-                .width(min: 80, ideal: 170)
-                TableColumn("Size", value: \.size) { SizeCell(item: $0) }.width(min: 70, ideal: 80)
-                TableColumn("Modified", value: \.sortDate) { DateCell(item: $0) }.width(min: 90, ideal: 120)
             }
-            .tableStyle(.inset(alternatesRowBackgrounds: true))
-        } else {
-            Table(items.sorted(using: order), sortOrder: $order) {
-                TableColumn("Name", value: \.name) { NameCell(item: $0) }.width(min: 160, ideal: 300)
-                TableColumn("Size", value: \.size) { SizeCell(item: $0) }.width(min: 70, ideal: 80)
-                TableColumn("Items", value: \.itemCount) { item in
-                    Text(item.isDirectory ? item.itemCount.formatted() : "").monospacedDigit().foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            Divider()
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(sorted.enumerated()), id: \.element.id) { index, item in
+                        FileRow(item: item, columns: columns)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .background(index.isMultiple(of: 2) ? Color.clear : Color.primary.opacity(0.045))
+                    }
                 }
-                .width(min: 50, ideal: 60)
-                TableColumn("Modified", value: \.sortDate) { DateCell(item: $0) }.width(min: 90, ideal: 120)
             }
-            .tableStyle(.inset(alternatesRowBackgrounds: true))
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    static func title(_ column: SortKey) -> String {
+        switch column {
+        case .name: "Name"
+        case .folder: "Folder"
+        case .size: "Size"
+        case .items: "Items"
+        case .modified: "Modified"
+        }
+    }
+
+    static func trailing(_ column: SortKey) -> Bool { column == .size || column == .items }
+}
+
+struct ColumnWidth: ViewModifier {
+    let column: FileTable.SortKey
+
+    func body(content: Content) -> some View {
+        switch column {
+        case .name: content.frame(minWidth: 140, maxWidth: .infinity, alignment: .leading)
+        case .folder: content.frame(width: 170, alignment: .leading)
+        case .size: content.frame(width: 76, alignment: .trailing)
+        case .items: content.frame(width: 56, alignment: .trailing)
+        case .modified: content.frame(width: 120, alignment: .leading)
         }
     }
 }
 
-struct NameCell: View {
+struct FileRow: View {
     let item: FileItem
+    let columns: [FileTable.SortKey]
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(nsImage: Format.icon(for: item)).resizable().frame(width: 16, height: 16)
-            Text(item.name).lineLimit(1).truncationMode(.middle)
+        HStack(spacing: 12) {
+            ForEach(columns, id: \.self) { column in
+                cell(column).modifier(ColumnWidth(column: column))
+            }
         }
-        .opacity(item.isHidden ? 0.55 : 1)
+        .lineLimit(1)
     }
-}
 
-struct SizeCell: View {
-    let item: FileItem
-
-    var body: some View {
-        Text(Format.bytes(item.size)).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
-    }
-}
-
-struct DateCell: View {
-    let item: FileItem
-
-    var body: some View {
-        Text(item.modified.map(Format.relative) ?? "").foregroundStyle(.secondary).lineLimit(1)
+    @ViewBuilder private func cell(_ column: FileTable.SortKey) -> some View {
+        switch column {
+        case .name:
+            HStack(spacing: 6) {
+                Image(nsImage: Format.icon(for: item)).resizable().frame(width: 16, height: 16)
+                Text(item.name).truncationMode(.middle)
+            }
+            .opacity(item.isHidden ? 0.55 : 1)
+        case .folder: Text(item.folder).foregroundStyle(.secondary).truncationMode(.head)
+        case .size: Text(Format.bytes(item.size)).monospacedDigit()
+        case .items: Text(item.isDirectory ? item.itemCount.formatted() : "").monospacedDigit().foregroundStyle(.secondary)
+        case .modified: Text(item.modified.map(Format.relative) ?? "").foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -260,10 +312,14 @@ enum Format {
         "\(value.formatted()) \(noun)\(value == 1 ? "" : "s")"
     }
 
-    static func relative(_ date: Date) -> String {
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return formatter
+    }()
+
+    static func relative(_ date: Date) -> String {
+        relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 
     static func gitStatus(_ status: GitStatus) -> String {
@@ -284,10 +340,14 @@ enum Format {
         }
     }
 
+    @MainActor private static var icons: [String: NSImage] = [:]
+
     @MainActor static func icon(for item: FileItem) -> NSImage {
-        if item.isDirectory { return NSWorkspace.shared.icon(for: .folder) }
-        let ext = (item.path as NSString).pathExtension
-        return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
+        let key = item.isDirectory ? "/" : (item.path as NSString).pathExtension.lowercased()
+        if let cached = icons[key] { return cached }
+        let icon = item.isDirectory ? NSWorkspace.shared.icon(for: .folder) : NSWorkspace.shared.icon(for: UTType(filenameExtension: key) ?? .data)
+        icons[key] = icon
+        return icon
     }
 
     @MainActor static func icon(for url: URL, content: PreviewModel.Content) -> NSImage {

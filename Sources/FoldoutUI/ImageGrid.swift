@@ -29,9 +29,21 @@ struct ImageGrid: View {
 }
 
 struct Thumbnail: View {
+    private static let cache: NSCache<NSURL, NSImage> = {
+        let cache = NSCache<NSURL, NSImage>()
+        cache.countLimit = FolderTally.imageLimit
+        return cache
+    }()
+
     let url: URL
     let fallback: NSImage
     @State private var image: NSImage?
+
+    init(url: URL, fallback: NSImage) {
+        self.url = url
+        self.fallback = fallback
+        _image = State(initialValue: Self.cache.object(forKey: url as NSURL))
+    }
 
     var body: some View {
         Group {
@@ -45,6 +57,7 @@ struct Thumbnail: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: url) {
+            guard image == nil else { return }
             image = await Task.detached(priority: .utility) { Self.load(url) }.value
         }
     }
@@ -57,6 +70,8 @@ struct Thumbnail: View {
         ]
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        return NSImage(cgImage: thumbnail, size: NSSize(width: thumbnail.width, height: thumbnail.height))
+        let image = NSImage(cgImage: thumbnail, size: NSSize(width: thumbnail.width, height: thumbnail.height))
+        cache.setObject(image, forKey: url as NSURL)
+        return image
     }
 }
