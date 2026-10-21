@@ -43,6 +43,13 @@ fi
 
 if [[ "${1:-}" == "--release" ]]; then
   rm -f build/Foldout.zip build/Foldout.dmg
+  notarize() { xcrun notarytool submit "$1" --keychain-profile "${NOTARY_PROFILE:-foldout}" --wait; }
+  if [[ "$identity" != "-" ]]; then
+    ditto -c -k --keepParent "$app" build/Foldout.zip
+    notarize build/Foldout.zip
+    xcrun stapler staple "$app"
+  fi
+  ditto -c -k --norsrc --noextattr --noqtn --keepParent "$app" build/Foldout.zip
   staging=$(mktemp -d)
   cp -R "$app" "$staging/"
   ln -s /Applications "$staging/Applications"
@@ -50,10 +57,8 @@ if [[ "${1:-}" == "--release" ]]; then
   rm -rf "$staging"
   if [[ "$identity" != "-" ]]; then
     codesign --force --sign "$identity" --timestamp build/Foldout.dmg
-    xcrun notarytool submit build/Foldout.dmg --keychain-profile "${NOTARY_PROFILE:-foldout}" --wait
+    notarize build/Foldout.dmg
     xcrun stapler staple build/Foldout.dmg
-    xcrun stapler staple "$app"
   fi
-  ditto -c -k --norsrc --noextattr --noqtn --keepParent "$app" build/Foldout.zip
   echo "Packaged build/Foldout.zip and build/Foldout.dmg"
 fi
