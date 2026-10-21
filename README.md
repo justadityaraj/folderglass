@@ -39,9 +39,9 @@ https://github.com/user-attachments/assets/46c7f1b5-e3a5-4444-9831-12e947595291
 
 ## Install
 
-### Option 1: Homebrew (recommended, no security prompt)
+### Option 1: Homebrew
 
-Homebrew builds Foldout on your own Mac, so macOS never blocks it.
+Homebrew builds Foldout from source on your Mac.
 
 ```bash
 brew install justadityaraj/tap/foldout
@@ -55,9 +55,8 @@ Opening Foldout once switches the Quick Look extension on. Update later with `br
 
 1. Download `Foldout.dmg` from the [latest release](../../releases/latest).
 2. Open it and drag Foldout into Applications.
-3. Open Foldout. macOS says **"Foldout.app" Not Opened** because the app isn't notarized by Apple. Click **Done**.
-4. Open **System Settings → Privacy & Security**, scroll down to **Security**, and click **Open Anyway** next to the Foldout message. Confirm with Touch ID or your password, then click **Open**.
-5. Foldout's window shows **Quick Look extension is on**. You only do this once.
+3. Open Foldout. If macOS asks whether to open an app downloaded from the internet, click **Open**.
+4. Foldout's window shows **Quick Look extension is on**. You only do this once.
 
 Now select any folder in Finder and press Space.
 
@@ -93,6 +92,12 @@ cd foldout-folder-preview
 | `Sources/FoldoutSnapshots` | Renders a preview to PNG: `swift run FoldoutSnapshots <path> out.png [light\|dark]`. |
 
 `swift scripts/demo-data.swift build/demo` makes the sample folders used in the screenshots.
+
+## Signing
+
+Releases from 0.1.3 on are signed with a Developer ID certificate and notarized by Apple, so they open without a security warning. The certificate belongs to the Apple Developer account of Swagloop Ventures Private Limited, a company I'm a director of. It's the developer account I already have, and it saves you the Open Anyway step.
+
+Foldout is still my personal project. Swagloop doesn't own it, fund it or receive any data from it, and the MIT license covers all of it. If a future release is signed under a different account, nothing changes in how you install or use it. Homebrew builds aren't affected either way, because they're built on your own Mac.
 
 ## License
 

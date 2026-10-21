@@ -16,8 +16,11 @@ cp Resources/Info.plist "$app/Contents/Info.plist"
 cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 cp "$bin/FoldoutPreview" "$appex/Contents/MacOS/FoldoutPreview"
 cp Resources/Preview-Info.plist "$appex/Contents/Info.plist"
-codesign --force --sign - --entitlements Resources/Preview.entitlements "$appex"
-codesign --force --sign - "$app"
+identity="${SIGN_IDENTITY:--}"
+sign=(codesign --force --sign "$identity")
+[[ "$identity" != "-" ]] && sign+=(--options runtime --timestamp)
+"${sign[@]}" --entitlements Resources/Preview.entitlements "$appex"
+"${sign[@]}" "$app"
 echo "Built $app"
 
 if [[ "${1:-}" == "--install" ]]; then
@@ -40,11 +43,17 @@ fi
 
 if [[ "${1:-}" == "--release" ]]; then
   rm -f build/Foldout.zip build/Foldout.dmg
-  ditto -c -k --norsrc --noextattr --noqtn --keepParent "$app" build/Foldout.zip
   staging=$(mktemp -d)
   cp -R "$app" "$staging/"
   ln -s /Applications "$staging/Applications"
   hdiutil create -volname Foldout -srcfolder "$staging" -fs HFS+ -format UDZO -ov build/Foldout.dmg >/dev/null
   rm -rf "$staging"
+  if [[ "$identity" != "-" ]]; then
+    codesign --force --sign "$identity" --timestamp build/Foldout.dmg
+    xcrun notarytool submit build/Foldout.dmg --keychain-profile "${NOTARY_PROFILE:-foldout}" --wait
+    xcrun stapler staple build/Foldout.dmg
+    xcrun stapler staple "$app"
+  fi
+  ditto -c -k --norsrc --noextattr --noqtn --keepParent "$app" build/Foldout.zip
   echo "Packaged build/Foldout.zip and build/Foldout.dmg"
 fi
