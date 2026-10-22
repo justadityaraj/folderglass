@@ -1,5 +1,5 @@
 import AppKit
-import FoldoutCore
+import FolderglassCore
 
 @MainActor
 public final class PreviewModel: ObservableObject {

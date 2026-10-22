@@ -1,10 +1,10 @@
 import AppKit
-import FoldoutUI
+import FolderglassUI
 import SwiftUI
 
 let arguments = CommandLine.arguments
 guard arguments.count >= 3 else {
-    print("usage: FoldoutSnapshots <path> <output.png> [light|dark] [width] [height] [tab]")
+    print("usage: FolderglassSnapshots <path> <output.png> [light|dark] [width] [height] [tab]")
     exit(2)
 }
 let target = URL(fileURLWithPath: arguments[1])
