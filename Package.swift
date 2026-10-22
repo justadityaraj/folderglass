@@ -7,7 +7,7 @@ let package = Package(
     targets: [
         .target(name: "FolderglassCore"),
         .target(name: "FolderglassUI", dependencies: ["FolderglassCore"]),
-        .executableTarget(name: "Folderglass", dependencies: ["FolderglassUI"]),
+        .executableTarget(name: "Folderglass", dependencies: ["FolderglassCore", "FolderglassUI"]),
         .executableTarget(
             name: "FolderglassPreview",
             dependencies: ["FolderglassUI"],
