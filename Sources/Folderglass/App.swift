@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 
 @main
-struct FoldoutApp: App {
+struct FolderglassApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
 
     var body: some Scene {
-        Window("Foldout", id: "main") {
+        Window("Folderglass", id: "main") {
             WelcomeView()
         }
         .windowResizability(.contentSize)
@@ -18,13 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 enum Extension {
-    static let identifier = "com.adityarajsingh.Foldout.Preview"
+    static let identifier = "com.adityarajsingh.Folderglass.Preview"
 
     static var isEnabled: Bool {
         run("/usr/bin/pluginkit", ["-m", "-i", identifier]).hasPrefix("+")
     }
 
     static func enable() {
+        _ = run("/usr/bin/pluginkit", ["-e", "ignore", "-i", "com.adityarajsingh.Foldout.Preview"])
         _ = run("/usr/bin/pluginkit", ["-e", "use", "-i", identifier])
         _ = run("/usr/bin/qlmanage", ["-r"])
         _ = run("/usr/bin/qlmanage", ["-r", "cache"])
@@ -62,7 +63,7 @@ struct WelcomeView: View {
             HStack(spacing: 14) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Foldout").font(.largeTitle.weight(.bold))
+                    Text("Folderglass").font(.largeTitle.weight(.bold))
                     Text("See inside any folder with Quick Look").foregroundStyle(.secondary)
                 }
             }
@@ -97,7 +98,7 @@ struct WelcomeView: View {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
                 }
                 Spacer()
-                Link("GitHub", destination: URL(string: "https://github.com/justadityaraj/foldout-folder-preview")!)
+                Link("GitHub", destination: URL(string: "https://github.com/justadityaraj/folderglass")!)
             }
         }
         .padding(24)

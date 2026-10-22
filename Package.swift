@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "Foldout",
+    name: "Folderglass",
     platforms: [.macOS(.v14)],
     targets: [
-        .target(name: "FoldoutCore"),
-        .target(name: "FoldoutUI", dependencies: ["FoldoutCore"]),
-        .executableTarget(name: "Foldout", dependencies: ["FoldoutUI"]),
+        .target(name: "FolderglassCore"),
+        .target(name: "FolderglassUI", dependencies: ["FolderglassCore"]),
+        .executableTarget(name: "Folderglass", dependencies: ["FolderglassUI"]),
         .executableTarget(
-            name: "FoldoutPreview",
-            dependencies: ["FoldoutUI"],
+            name: "FolderglassPreview",
+            dependencies: ["FolderglassUI"],
             linkerSettings: [.unsafeFlags(["-Xlinker", "-e", "-Xlinker", "_NSExtensionMain"])]
         ),
-        .executableTarget(name: "FoldoutSelfCheck", dependencies: ["FoldoutCore"]),
-        .executableTarget(name: "FoldoutSnapshots", dependencies: ["FoldoutUI"]),
+        .executableTarget(name: "FolderglassSelfCheck", dependencies: ["FolderglassCore"]),
+        .executableTarget(name: "FolderglassSnapshots", dependencies: ["FolderglassUI"]),
     ],
     swiftLanguageModes: [.v5]
 )

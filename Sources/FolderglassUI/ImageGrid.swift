@@ -1,5 +1,5 @@
 import AppKit
-import FoldoutCore
+import FolderglassCore
 import ImageIO
 import SwiftUI
 

@@ -1,5 +1,5 @@
 import Foundation
-import FoldoutCore
+import FolderglassCore
 
 var failures = 0
 
@@ -29,7 +29,7 @@ func write(_ text: String, to url: URL, modified: Date? = nil) {
     if let modified { try? FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: url.path) }
 }
 
-let root = FileManager.default.temporaryDirectory.appending(path: "foldout-selfcheck-\(UUID().uuidString)")
+let root = FileManager.default.temporaryDirectory.appending(path: "folderglass-selfcheck-\(UUID().uuidString)")
 defer { try? FileManager.default.removeItem(at: root) }
 
 let old = Date(timeIntervalSince1970: 1_600_000_000)

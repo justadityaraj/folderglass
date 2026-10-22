@@ -1,4 +1,4 @@
-import FoldoutCore
+import FolderglassCore
 import SwiftUI
 
 struct MarkdownView: View {
