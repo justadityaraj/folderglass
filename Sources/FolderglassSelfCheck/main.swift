@@ -185,6 +185,34 @@ zipBytes += Data([0x50, 0x4B, 0x05, 0x06, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0,
 try? zipBytes.write(to: root.appending(path: "bad.zip"))
 check(ZipListing.summary(of: root.appending(path: "bad.zip")).map { $0.fileCount == 0 } ?? true, "zip64 offsets past the file don't crash")
 
+let defaults = UserSettings()
+check(defaults.checkForUpdates && !defaults.showHiddenFiles && defaults.startTab == .automatic && defaults.scanSeconds == 15 && defaults.skipNetworkDrives, "settings defaults")
+let partial = try? JSONDecoder().decode(UserSettings.self, from: Data(#"{"showHiddenFiles": true, "unknown": 1}"#.utf8))
+check(partial?.showHiddenFiles == true && partial?.checkForUpdates == true && partial?.scanSeconds == 15, "settings fill missing keys with defaults")
+let settingsFile = root.appending(path: "prefs/settings.json")
+var changed = UserSettings()
+changed.startTab = .largest
+changed.scanSeconds = 5
+try? changed.save(to: settingsFile)
+check(UserSettings.load(from: settingsFile) == changed, "settings round-trip through the file")
+check(UserSettings.load(from: root.appending(path: "missing.json")) == UserSettings(), "missing settings file gives defaults")
+
+check(Version.isNewer("v0.3.0", than: "0.2.0"), "newer minor version")
+check(Version.isNewer("0.10.0", than: "0.9.1"), "numeric, not text, comparison")
+check(!Version.isNewer("v0.2.0", than: "0.2.0"), "same version is not newer")
+check(!Version.isNewer("0.1.9", than: "0.2.0"), "older version is not newer")
+check(Version.isNewer("1.0", than: "0.9.9"), "shorter version strings compare")
+
+let options = root.appending(path: "options")
+write(String(repeating: "a", count: 100), to: options.appending(path: "top.txt"))
+write(String(repeating: "b", count: 900), to: options.appending(path: "nested/deep.txt"))
+write("hidden", to: options.appending(path: ".cache/hidden.txt"))
+let shallow = FolderScanner.scan(options, limits: ScanLimits(maxDepth: 1))
+check(shallow.fileCount == 1 && shallow.totalSize == 100, "top-level-only scan skips subfolder contents (got \(shallow.fileCount) files, \(shallow.totalSize) bytes)")
+let hiddenOff = FolderScanner.scan(options)
+let hiddenOn = FolderScanner.scan(options, includeHidden: true)
+check(hiddenOff.fileCount == 2 && hiddenOn.fileCount == 3 && hiddenOn.folderCount == 2, "hidden files counted only when asked (got \(hiddenOff.fileCount) and \(hiddenOn.fileCount))")
+
 if failures == 0 {
     print("All checks passed")
 } else {

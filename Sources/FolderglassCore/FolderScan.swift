@@ -63,15 +63,18 @@ public struct FolderTally {
     private var largest: [FileItem] = []
     private var recent: [FileItem] = []
     private var images: [FileItem] = []
+    private let includeHidden: Bool
 
-    public init() {}
+    public init(includeHidden: Bool = false) {
+        self.includeHidden = includeHidden
+    }
 
     public mutating func add(_ item: FileItem) {
         let top = item.path.split(separator: "/", maxSplits: 1).first.map(String.init) ?? item.path
         let isTopLevel = top == item.path
 
         if item.isDirectory {
-            if !item.isHidden { summary.folderCount += 1 }
+            if includeHidden || !item.isHidden { summary.folderCount += 1 }
             if isTopLevel { mergeChild(top, size: 0, modified: nil, isDirectory: true, count: 0) }
             return
         }
@@ -85,7 +88,7 @@ public struct FolderTally {
             mergeChild(top, size: item.size, modified: item.modified, isDirectory: true, count: 1)
         }
 
-        guard !item.isHidden else { return }
+        guard includeHidden || !item.isHidden else { return }
         summary.fileCount += 1
         if let modified = item.modified, modified > (summary.latestModified ?? .distantPast) { summary.latestModified = modified }
         let kind = kind(of: item)
@@ -157,16 +160,20 @@ public struct FolderTally {
 public struct ScanLimits: Sendable {
     public var maxItems: Int
     public var maxDuration: TimeInterval
+    public var maxDepth: Int?
 
-    public init(maxItems: Int = 1_000_000, maxDuration: TimeInterval = 15) {
+    public init(maxItems: Int = 1_000_000, maxDuration: TimeInterval = 15, maxDepth: Int? = nil) {
         self.maxItems = maxItems
         self.maxDuration = maxDuration
+        self.maxDepth = maxDepth
     }
 }
 
 public enum FolderScanner {
+    public static let homeDirectory = getpwuid(getuid()).map { String(cString: $0.pointee.pw_dir) } ?? NSHomeDirectory()
+
     public static let skippedFolders: Set<String> = {
-        let home = getpwuid(getuid()).map { String(cString: $0.pointee.pw_dir) } ?? NSHomeDirectory()
+        let home = homeDirectory
         let library = [
             "CloudStorage", "Mobile Documents", "Photos", "Containers", "Group Containers", "Daemon Containers", "Mail", "Messages",
             "Safari", "Calendars", "Reminders", "Cookies", "HomeKit", "Suggestions", "Accounts", "Sharing", "Biome",
@@ -182,10 +189,11 @@ public enum FolderScanner {
     public static func scan(
         _ root: URL,
         limits: ScanLimits = ScanLimits(),
+        includeHidden: Bool = false,
         progressInterval: TimeInterval = 0.2,
         progress: (FolderSummary) -> Void = { _ in }
     ) -> FolderSummary {
-        var tally = FolderTally()
+        var tally = FolderTally(includeHidden: includeHidden)
         let start = Date()
         var lastReport = start
         var seen = 0
@@ -231,7 +239,7 @@ public enum FolderScanner {
                     package = (FileItem(path: path, size: 0, modified: nil, isDirectory: false), level)
                     if ["photoslibrary", "musiclibrary"].contains(url.pathExtension) { walker.skipDescendants() }
                 } else {
-                    if isDirectory, skippedFolders.contains(url.path) { walker.skipDescendants() }
+                    if isDirectory, skippedFolders.contains(url.path) || level >= (limits.maxDepth ?? .max) { walker.skipDescendants() }
                     tally.add(FileItem(path: path, size: isDirectory ? 0 : size, modified: modified, isDirectory: isDirectory))
                 }
             }

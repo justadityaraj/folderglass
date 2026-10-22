@@ -15,6 +15,8 @@ public final class PreviewModel: ObservableObject {
     @Published public private(set) var readme: [MarkdownBlock] = []
     @Published public private(set) var readmeName: String?
     @Published public private(set) var failed = false
+    @Published public private(set) var topLevelOnly = false
+    public let settings = UserSettings.load()
     private var task: Task<Void, Never>?
     private var scanFinished = false
 
@@ -54,9 +56,14 @@ public final class PreviewModel: ObservableObject {
             failed = summary == nil
         case .folder:
             async let details: (GitInfo?, String?, [MarkdownBlock]) = Task.detached { Self.details(of: url) }.value
-            let limits = ScanLimits()
-            let scan = Task.detached(priority: .utility) { [weak self] in
-                FolderScanner.scan(url, limits: limits, progressInterval: 0.5) { partial in
+            var limits = ScanLimits(maxDuration: settings.scanSeconds)
+            if settings.skipNetworkDrives, (try? url.resourceValues(forKeys: [.volumeIsLocalKey]))?.volumeIsLocal == false {
+                limits.maxDepth = 1
+                topLevelOnly = true
+            }
+            let includeHidden = settings.showHiddenFiles
+            let scan = Task.detached(priority: .utility) { [weak self, limits] in
+                FolderScanner.scan(url, limits: limits, includeHidden: includeHidden, progressInterval: 0.5) { partial in
                     Task { @MainActor in
                         if self?.scanFinished == false { self?.summary = partial }
                     }

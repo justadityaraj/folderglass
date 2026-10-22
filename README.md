@@ -30,7 +30,8 @@ https://github.com/user-attachments/assets/bb9215a0-34ae-41e1-b039-8b93644f08f0
 - **Zip contents.** Press Space on a `.zip` to see its files, sizes and type breakdown.
 - **Markdown files.** `.md` files get the same renderer as READMEs.
 - **Light and dark mode,** Apple Silicon and Intel, macOS 14 Sonoma or later.
-- **Private by design.** No network access, no analytics, read-only. Folderglass never writes to the folders you preview.
+- **Settings.** Show hidden files, choose the tab previews open on, set how long big folders are counted, and count only the top level on network drives. Check for Updates and Reset Quick Look are there too.
+- **Private by design.** The Quick Look extension is read-only and never uses the network, and there are no analytics. Folderglass never writes to the folders you preview. The app checks GitHub for a newer version when you open it; you can turn that off in its settings.
 
 <p align="center">
   <img src="docs/photos.png" width="420" alt="A folder of product photos shown as a thumbnail grid in dark mode">
@@ -66,7 +67,7 @@ Now select any folder in Finder and press Space.
 
 **Another app's preview shows up instead.** macOS uses one Quick Look extension per file type. Open **System Settings → General → Login Items & Extensions → Quick Look** and turn off the other folder preview extensions, or click **Extension Settings…** in Folderglass.
 
-**Nothing changed after installing.** Open Folderglass once, then run `qlmanage -r` in Terminal to reset Quick Look's cache.
+**Nothing changed after installing.** Open Folderglass and click **Reset Quick Look**. That registers the extension again and clears Quick Look's cache.
 
 **The scan says it stopped early.** Folderglass stops after 15 seconds or a million items so huge folders like your whole home folder stay responsive. Everything counted so far is shown.
 

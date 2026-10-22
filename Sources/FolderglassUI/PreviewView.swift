@@ -10,6 +10,17 @@ public struct PreviewView: View {
     enum Tab: String, CaseIterable, Identifiable {
         case contents = "Contents", largest = "Largest", recent = "Recent", readme = "README", images = "Images"
         var id: String { rawValue }
+
+        static func matching(_ start: UserSettings.StartTab) -> Tab? {
+            switch start {
+            case .automatic: nil
+            case .contents: .contents
+            case .largest: .largest
+            case .recent: .recent
+            case .readme: .readme
+            case .images: .images
+            }
+        }
     }
 
     public init(model: PreviewModel, tab: String? = nil) {
@@ -44,6 +55,7 @@ public struct PreviewView: View {
     }
 
     private var defaultTab: Tab {
+        if let chosen = Tab.matching(model.settings.startTab), availableTabs.contains(chosen) { return chosen }
         if model.content == .folder, model.summary?.isMostlyImages == true { return .images }
         if model.git != nil, !model.readme.isEmpty { return .readme }
         return .contents
@@ -73,6 +85,7 @@ public struct PreviewView: View {
         if summary.folderCount > 0 { parts.append(Format.count(summary.folderCount, "folder")) }
         parts.append(Format.bytes(summary.totalSize))
         if let latest = summary.latestModified { parts.append("updated \(Format.relative(latest))") }
+        if model.topLevelOnly { parts.append("network drive, top level only") }
         if summary.hitLimit { parts.append("stopped early, folder is huge") }
         return parts.joined(separator: " · ")
     }
