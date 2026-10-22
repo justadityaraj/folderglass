@@ -13,7 +13,7 @@ Use it to:
 
 **[Download Folderglass](../../releases/latest)** · [Website](https://dev.adityarajsingh.com/folderglass/) · [Compare Quick Look folder apps](https://dev.adityarajsingh.com/folderglass/comparison/)
 
-https://github.com/user-attachments/assets/46c7f1b5-e3a5-4444-9831-12e947595291
+https://github.com/user-attachments/assets/bb9215a0-34ae-41e1-b039-8b93644f08f0
 
 <p align="center">
   <img src="docs/repo-readme.png" width="720" alt="Folderglass previewing a code project: size and file-type bar, git branch with two modified files, last commit, and the rendered README">
