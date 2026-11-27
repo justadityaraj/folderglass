@@ -11,7 +11,7 @@ Use it to:
 - flip through a folder of photos as a thumbnail grid
 - look inside a `.zip` without unpacking it, and preview Markdown files with headings, lists, code and tables
 
-**[Download Folderglass](../../releases/latest)** · [Website](https://dev.adityarajsingh.com/folderglass/) · [Compare Quick Look folder apps](https://dev.adityarajsingh.com/folderglass/comparison/)
+**[Download Folderglass](../../releases/latest)** · [Website](https://adityarajsingh.com/folderglass/) · [Compare Quick Look folder apps](https://adityarajsingh.com/folderglass/comparison/)
 
 https://github.com/user-attachments/assets/bb9215a0-34ae-41e1-b039-8b93644f08f0
 
