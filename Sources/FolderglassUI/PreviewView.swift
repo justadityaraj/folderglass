@@ -104,7 +104,7 @@ public struct PreviewView: View {
                 switch selected {
                 case .contents:
                     VStack(alignment: .leading, spacing: 6) {
-                        FileTable(items: model.summary?.children ?? [], showsFolder: false, initialSort: .size)
+                        FileTable(items: model.summary?.children ?? [], showsFolder: false, initialSort: FileTable.SortKey(model.settings.contentsSort))
                         if let summary = model.summary, summary.childCount > summary.children.count {
                             Text("Showing the \(summary.children.count) largest of \(summary.childCount.formatted()) items").font(.caption).foregroundStyle(.secondary)
                         }
@@ -188,7 +188,18 @@ struct GitCard: View {
 }
 
 struct FileTable: View {
-    enum SortKey { case name, folder, size, items, modified }
+    enum SortKey {
+        case name, folder, size, items, modified
+
+        init(_ sort: UserSettings.ContentsSort) {
+            switch sort {
+            case .size: self = .size
+            case .name: self = .name
+            case .modified: self = .modified
+            case .items: self = .items
+            }
+        }
+    }
 
     let items: [FileItem]
     let showsFolder: Bool

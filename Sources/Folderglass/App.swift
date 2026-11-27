@@ -104,6 +104,17 @@ extension UserSettings.StartTab {
     }
 }
 
+extension UserSettings.ContentsSort {
+    var title: String {
+        switch self {
+        case .size: "Size"
+        case .name: "Name"
+        case .modified: "Date Modified"
+        case .items: "Item Count"
+        }
+    }
+}
+
 struct WelcomeView: View {
     @State private var enabled = Extension.isEnabled
     @State private var settings = UserSettings.load()
@@ -149,6 +160,12 @@ struct WelcomeView: View {
                 row("Open on tab") {
                     Picker("", selection: $settings.startTab) {
                         ForEach(UserSettings.StartTab.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .fixedSize()
+                }
+                row("Sort Contents by") {
+                    Picker("", selection: $settings.contentsSort) {
+                        ForEach(UserSettings.ContentsSort.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .fixedSize()
                 }
