@@ -186,13 +186,16 @@ try? zipBytes.write(to: root.appending(path: "bad.zip"))
 check(ZipListing.summary(of: root.appending(path: "bad.zip")).map { $0.fileCount == 0 } ?? true, "zip64 offsets past the file don't crash")
 
 let defaults = UserSettings()
-check(defaults.checkForUpdates && !defaults.showHiddenFiles && defaults.startTab == .automatic && defaults.scanSeconds == 15 && defaults.skipNetworkDrives, "settings defaults")
+check(defaults.checkForUpdates && !defaults.showHiddenFiles && defaults.startTab == .automatic && defaults.contentsSort == .size && defaults.scanSeconds == 15 && defaults.skipNetworkDrives, "settings defaults")
 let partial = try? JSONDecoder().decode(UserSettings.self, from: Data(#"{"showHiddenFiles": true, "unknown": 1}"#.utf8))
 check(partial?.showHiddenFiles == true && partial?.checkForUpdates == true && partial?.scanSeconds == 15, "settings fill missing keys with defaults")
+let unknownSort = try? JSONDecoder().decode(UserSettings.self, from: Data(#"{"contentsSort": "color"}"#.utf8))
+check(unknownSort?.contentsSort == .size, "unknown sort order falls back to size")
 let settingsFile = root.appending(path: "prefs/settings.json")
 var changed = UserSettings()
 changed.startTab = .largest
 changed.scanSeconds = 5
+changed.contentsSort = .name
 try? changed.save(to: settingsFile)
 check(UserSettings.load(from: settingsFile) == changed, "settings round-trip through the file")
 check(UserSettings.load(from: root.appending(path: "missing.json")) == UserSettings(), "missing settings file gives defaults")

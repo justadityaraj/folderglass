@@ -5,9 +5,14 @@ public struct UserSettings: Codable, Equatable, Sendable {
         case automatic, contents, largest, recent, readme, images
     }
 
+    public enum ContentsSort: String, Codable, CaseIterable, Sendable {
+        case size, name, modified, items
+    }
+
     public var checkForUpdates = true
     public var showHiddenFiles = false
     public var startTab = StartTab.automatic
+    public var contentsSort = ContentsSort.size
     public var scanSeconds: Double = 15
     public var skipNetworkDrives = true
 
@@ -19,6 +24,7 @@ public struct UserSettings: Codable, Equatable, Sendable {
         checkForUpdates = try values.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? defaults.checkForUpdates
         showHiddenFiles = try values.decodeIfPresent(Bool.self, forKey: .showHiddenFiles) ?? defaults.showHiddenFiles
         startTab = (try? values.decodeIfPresent(StartTab.self, forKey: .startTab)) ?? defaults.startTab
+        contentsSort = (try? values.decodeIfPresent(ContentsSort.self, forKey: .contentsSort)) ?? defaults.contentsSort
         scanSeconds = try values.decodeIfPresent(Double.self, forKey: .scanSeconds) ?? defaults.scanSeconds
         skipNetworkDrives = try values.decodeIfPresent(Bool.self, forKey: .skipNetworkDrives) ?? defaults.skipNetworkDrives
     }
