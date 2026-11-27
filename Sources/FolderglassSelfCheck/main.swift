@@ -115,6 +115,10 @@ check(zipped?.fileCount == 2, "zip lists its files (got \(String(describing: zip
 check(zipped?.totalSize == 5300, "zip reports uncompressed size")
 check(zipped?.largest.first?.path == "big.png", "zip with one top folder is unwrapped")
 check(zipped?.folderCount == 0, "unwrapped zip has no folders left")
+check(zipped?.archiveFolder == "assets", "unwrapped zip remembers its top folder")
+let flatZip = root.appending(path: "flat.zip")
+run(["ditto", "-c", "-k", root.appending(path: "assets").path, flatZip.path], in: root)
+check(ZipListing.summary(of: flatZip).map { $0.fileCount == 2 && $0.archiveFolder == nil } == true, "zip without a top folder names none")
 check(ZipListing.summary(of: root.appending(path: "README.md")) == nil, "non-zip is rejected")
 
 let markdown = """
