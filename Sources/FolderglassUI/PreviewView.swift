@@ -11,6 +11,16 @@ public struct PreviewView: View {
         case contents = "Contents", largest = "Largest", recent = "Recent", readme = "README", images = "Images"
         var id: String { rawValue }
 
+        var title: String {
+            switch self {
+            case .contents: localized("Contents")
+            case .largest: localized("Largest")
+            case .recent: localized("Recent")
+            case .readme: localized("README")
+            case .images: localized("Images")
+            }
+        }
+
         static func matching(_ start: UserSettings.StartTab) -> Tab? {
             switch start {
             case .automatic: nil
@@ -80,14 +90,14 @@ public struct PreviewView: View {
     }
 
     private var subtitle: String {
-        guard let summary = model.summary else { return model.failed ? "Couldn't read this archive" : "Scanning…" }
-        var parts = [Format.count(summary.fileCount, "file")]
-        if summary.folderCount > 0 { parts.append(Format.count(summary.folderCount, "folder")) }
+        guard let summary = model.summary else { return model.failed ? localized("Couldn't read this archive") : localized("Scanning…") }
+        var parts = [localized("\(summary.fileCount) files")]
+        if summary.folderCount > 0 { parts.append(localized("\(summary.folderCount) folders")) }
         parts.append(Format.bytes(summary.totalSize))
-        if let folder = summary.archiveFolder { parts.append("all inside \(folder)/") }
-        if let latest = summary.latestModified { parts.append("updated \(Format.relative(latest))") }
-        if model.topLevelOnly { parts.append("network drive, top level only") }
-        if summary.hitLimit { parts.append("stopped early, folder is huge") }
+        if let folder = summary.archiveFolder { parts.append(localized("all inside \(folder)/")) }
+        if let latest = summary.latestModified { parts.append(localized("updated \(Format.relative(latest))")) }
+        if model.topLevelOnly { parts.append(localized("network drive, top level only")) }
+        if summary.hitLimit { parts.append(localized("stopped early, folder is huge")) }
         return parts.joined(separator: " · ")
     }
 
@@ -95,7 +105,7 @@ public struct PreviewView: View {
         let selected = tab.flatMap { availableTabs.contains($0) ? $0 : nil } ?? defaultTab
         VStack(alignment: .leading, spacing: 10) {
             Picker("", selection: Binding(get: { selected }, set: { tab = $0 })) {
-                ForEach(availableTabs) { Text($0.rawValue).tag($0) }
+                ForEach(availableTabs) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -107,7 +117,7 @@ public struct PreviewView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         FileTable(items: model.summary?.children ?? [], showsFolder: false, initialSort: FileTable.SortKey(model.settings.contentsSort))
                         if let summary = model.summary, summary.childCount > summary.children.count {
-                            Text("Showing the \(summary.children.count) largest of \(summary.childCount.formatted()) items").font(.caption).foregroundStyle(.secondary)
+                            Text(localized("Showing the \(summary.children.count) largest of \(summary.childCount) items")).font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 case .largest: FileTable(items: model.summary?.largest ?? [], showsFolder: true, initialSort: .size)
@@ -143,7 +153,7 @@ struct TypeBreakdown: View {
                 ForEach(kinds.prefix(6), id: \.kind) { kind in
                     HStack(spacing: 5) {
                         Circle().fill(Format.color(kind.kind)).frame(width: 8, height: 8)
-                        Text(kind.kind.title).font(.caption.weight(.medium))
+                        Text(Format.title(kind.kind)).font(.caption.weight(.medium))
                         Text("\(Format.bytes(kind.size)) · \(kind.count.formatted())").font(.caption).foregroundStyle(.secondary)
                     }
                     .fixedSize()
@@ -164,7 +174,7 @@ struct GitCard: View {
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(git.branch ?? "detached at \(git.head?.prefix(7) ?? "?")").font(.callout.weight(.semibold))
+                    Text(git.branch ?? localized("detached at \(String(git.head?.prefix(7) ?? "?"))")).font(.callout.weight(.semibold))
                     if let status = git.status {
                         Text(Format.gitStatus(status))
                             .font(.caption.weight(.medium))
@@ -269,11 +279,11 @@ struct FileTable: View {
 
     static func title(_ column: SortKey) -> String {
         switch column {
-        case .name: "Name"
-        case .folder: "Folder"
-        case .size: "Size"
-        case .items: "Items"
-        case .modified: "Modified"
+        case .name: localized("Name")
+        case .folder: localized("Folder")
+        case .size: localized("Size")
+        case .items: localized("Items")
+        case .modified: localized("Modified")
         }
     }
 
@@ -333,10 +343,6 @@ enum Format {
         ByteCountFormatter.string(fromByteCount: count, countStyle: .file)
     }
 
-    static func count(_ value: Int, _ noun: String) -> String {
-        "\(value.formatted()) \(noun)\(value == 1 ? "" : "s")"
-    }
-
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
@@ -348,9 +354,21 @@ enum Format {
     }
 
     static func gitStatus(_ status: GitStatus) -> String {
-        if status.isClean { return "clean" }
-        return [status.modified > 0 ? "\(status.modified) modified" : nil, status.deleted > 0 ? "\(status.deleted) deleted" : nil]
+        if status.isClean { return localized("clean") }
+        return [status.modified > 0 ? localized("\(status.modified) modified") : nil, status.deleted > 0 ? localized("\(status.deleted) deleted") : nil]
             .compactMap { $0 }.joined(separator: ", ")
+    }
+
+    static func title(_ kind: FileKind) -> String {
+        switch kind {
+        case .image: localized("Images")
+        case .video: localized("Video")
+        case .audio: localized("Audio")
+        case .code: localized("Code")
+        case .document: localized("Documents")
+        case .archive: localized("Archives")
+        case .other: localized("Other")
+        }
     }
 
     static func color(_ kind: FileKind) -> Color {

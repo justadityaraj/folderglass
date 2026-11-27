@@ -4,18 +4,6 @@ import UniformTypeIdentifiers
 public enum FileKind: String, CaseIterable, Sendable {
     case image, video, audio, code, document, archive, other
 
-    public var title: String {
-        switch self {
-        case .image: "Images"
-        case .video: "Video"
-        case .audio: "Audio"
-        case .code: "Code"
-        case .document: "Documents"
-        case .archive: "Archives"
-        case .other: "Other"
-        }
-    }
-
     private static let codeExtensions: Set<String> = [
         "c", "cc", "cpp", "cs", "css", "dart", "ex", "exs", "go", "gradle", "h", "hpp", "html", "java", "js", "json",
         "jsx", "kt", "kts", "lua", "m", "mm", "php", "pl", "py", "rb", "rs", "sass", "scala", "scss", "sh", "sql",
