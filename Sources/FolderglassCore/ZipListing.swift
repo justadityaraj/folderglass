@@ -2,7 +2,9 @@ import Foundation
 
 public enum ZipListing {
     public static func summary(of url: URL, limits: ScanLimits = ScanLimits()) -> FolderSummary? {
-        guard let items = entries(of: url, limit: limits.maxItems).map(unwrappingSingleFolder) else { return nil }
+        guard let all = entries(of: url, limit: limits.maxItems) else { return nil }
+        let wrapper = singleTopFolder(all)
+        let items = wrapper.map { unwrapping(all, from: $0) } ?? all
         var tally = FolderTally()
         if items.count >= limits.maxItems { tally.markLimitHit() }
         var folders = Set<String>()
@@ -15,14 +17,20 @@ public enum ZipListing {
         }
         for folder in folders.sorted() { tally.add(FileItem(path: folder, size: 0, modified: nil, isDirectory: true)) }
         for item in items where !item.isDirectory { tally.add(item) }
-        return tally.snapshot(complete: items.count < limits.maxItems)
+        var summary = tally.snapshot(complete: items.count < limits.maxItems)
+        summary.archiveFolder = wrapper
+        return summary
     }
 
-    static func unwrappingSingleFolder(_ items: [FileItem]) -> [FileItem] {
+    static func singleTopFolder(_ items: [FileItem]) -> String? {
         let tops = Set(items.map { $0.path.split(separator: "/", maxSplits: 1).first.map(String.init) ?? $0.path })
         guard tops.count == 1, let top = tops.first, items.contains(where: { $0.path.hasPrefix(top + "/") }),
-              !items.contains(where: { $0.path == top && !$0.isDirectory }) else { return items }
-        return items.compactMap { item in
+              !items.contains(where: { $0.path == top && !$0.isDirectory }) else { return nil }
+        return top
+    }
+
+    static func unwrapping(_ items: [FileItem], from top: String) -> [FileItem] {
+        items.compactMap { item in
             guard item.path.hasPrefix(top + "/") else { return nil }
             return FileItem(path: String(item.path.dropFirst(top.count + 1)), size: item.size, modified: item.modified, isDirectory: item.isDirectory)
         }

@@ -84,6 +84,7 @@ public struct PreviewView: View {
         var parts = [Format.count(summary.fileCount, "file")]
         if summary.folderCount > 0 { parts.append(Format.count(summary.folderCount, "folder")) }
         parts.append(Format.bytes(summary.totalSize))
+        if let folder = summary.archiveFolder { parts.append("all inside \(folder)/") }
         if let latest = summary.latestModified { parts.append("updated \(Format.relative(latest))") }
         if model.topLevelOnly { parts.append("network drive, top level only") }
         if summary.hitLimit { parts.append("stopped early, folder is huge") }

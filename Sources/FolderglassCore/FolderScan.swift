@@ -40,6 +40,7 @@ public struct FolderSummary: Sendable {
     public var imageCount = 0
     public var childCount = 0
     public var readme: String?
+    public var archiveFolder: String?
     public var isComplete = false
     public var hitLimit = false
 
