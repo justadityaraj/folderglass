@@ -20,6 +20,7 @@
 "Other" = "其他";
 "detached at %@" = "分离于 %@";
 "clean" = "无改动";
+"staged" = "已暂存";
 "%lld modified" = "%lld 个已修改";
 "%lld deleted" = "%lld 个已删除";
 "Name" = "名称";

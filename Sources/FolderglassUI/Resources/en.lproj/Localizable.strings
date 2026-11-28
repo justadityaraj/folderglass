@@ -20,6 +20,7 @@
 "Other" = "Other";
 "detached at %@" = "detached at %@";
 "clean" = "clean";
+"staged" = "staged";
 "%lld modified" = "%lld modified";
 "%lld deleted" = "%lld deleted";
 "Name" = "Name";
