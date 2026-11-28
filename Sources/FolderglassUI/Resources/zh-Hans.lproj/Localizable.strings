@@ -56,5 +56,8 @@
 "Folderglass %@ is the latest version." = "Folderglass %@ 已是最新版本。";
 "Couldn't reach GitHub to check for updates." = "无法连接 GitHub 检查更新。";
 "Folderglass %@ is available." = "Folderglass %@ 已推出。";
-"Copy “%@”" = "拷贝“%@”";
+"Update and Relaunch" = "更新并重新打开";
+"Update in Terminal" = "在“终端”中更新";
+"Updating…" = "正在更新…";
+"The update couldn't be installed." = "无法安装更新。";
 "Download" = "下载";

@@ -56,5 +56,8 @@
 "Folderglass %@ is the latest version." = "Folderglass %@ is the latest version.";
 "Couldn't reach GitHub to check for updates." = "Couldn't reach GitHub to check for updates.";
 "Folderglass %@ is available." = "Folderglass %@ is available.";
-"Copy “%@”" = "Copy “%@”";
+"Update and Relaunch" = "Update and Relaunch";
+"Update in Terminal" = "Update in Terminal";
+"Updating…" = "Updating…";
+"The update couldn't be installed." = "The update couldn't be installed.";
 "Download" = "Download";

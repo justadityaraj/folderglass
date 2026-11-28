@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/bb9215a0-34ae-41e1-b039-8b93644f08f0
 - **Zip contents.** Press Space on a `.zip` to see its files, sizes and type breakdown.
 - **Markdown files.** `.md` files get the same renderer as READMEs.
 - **Light and dark mode,** Apple Silicon and Intel, macOS 14 Sonoma or later.
-- **Settings.** Show hidden files, choose the tab previews open on, set how long big folders are counted, and count only the top level on network drives. Check for Updates and Reset Quick Look are there too.
+- **Settings.** Show hidden files, choose the tab previews open on, set how long big folders are counted, and count only the top level on network drives. Check for Updates installs a new version in one click, and Reset Quick Look is there too.
 - **Private by design.** The Quick Look extension is read-only and never uses the network, and there are no analytics. Folderglass never writes to the folders you preview. The app checks GitHub for a newer version when you open it; you can turn that off in its settings.
 
 <p align="center">

@@ -65,20 +65,43 @@ enum Extension {
 
 enum Updates {
     struct Release: Decodable {
+        struct Asset: Decodable {
+            let name: String
+            let browser_download_url: URL
+        }
+
         let tag_name: String
         let html_url: URL
+        let assets: [Asset]
     }
 
     enum State: Equatable {
-        case idle, checking, upToDate, failed
-        case available(version: String, page: URL)
+        case idle, checking, upToDate, failed, installing
+        case available(version: String, page: URL, archive: URL?)
+        case installFailed(page: URL)
     }
 
     static let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
-    static let brewCommand = "brew upgrade folderglass"
+    static let homebrewPrefix = SelfUpdate.homebrewPrefix(of: Bundle.main.bundleURL)
 
-    static var installedWithHomebrew: Bool {
-        Bundle.main.bundleURL.resolvingSymlinksInPath().path.contains("/Cellar/folderglass/")
+    @MainActor static func install(from archive: URL) async -> Bool {
+        let app = Bundle.main.bundleURL
+        guard (try? await SelfUpdate.install(from: archive, over: app)) != nil else { return false }
+        Extension.reset()
+        let relaunch = Process()
+        relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
+        relaunch.arguments = ["-c", "while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"", app.path]
+        try? relaunch.run()
+        NSApp.terminate(nil)
+        return true
+    }
+
+    @MainActor static func upgradeWithHomebrew(prefix: URL) {
+        let script = FileManager.default.temporaryDirectory.appending(path: "Update Folderglass.command")
+        guard (try? Data(SelfUpdate.homebrewScript(prefix: prefix).utf8).write(to: script)) != nil,
+              (try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)) != nil else { return }
+        NSWorkspace.shared.open(script)
+        NSApp.terminate(nil)
     }
 
     static func check() async -> State {
@@ -88,7 +111,8 @@ enum Updates {
               (response as? HTTPURLResponse)?.statusCode == 200,
               let release = try? JSONDecoder().decode(Release.self, from: data) else { return .failed }
         let version = release.tag_name.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
-        return Version.isNewer(version, than: current) ? .available(version: version, page: release.html_url) : .upToDate
+        let archive = release.assets.first { $0.name == "Folderglass.zip" }?.browser_download_url
+        return Version.isNewer(version, than: current) ? .available(version: version, page: release.html_url, archive: archive) : .upToDate
     }
 }
 
@@ -183,7 +207,7 @@ struct WelcomeView: View {
                 row(localized("Check for updates when Folderglass opens")) { Toggle("", isOn: $settings.checkForUpdates) }
                 HStack {
                     Button(localized("Check for Updates")) { Task { update = .checking; update = await Updates.check() } }
-                        .disabled(update == .checking)
+                        .disabled(update == .checking || update == .installing)
                     Button(localized("Reset Quick Look")) {
                         Extension.reset()
                         enabled = Extension.isEnabled
@@ -246,15 +270,27 @@ struct WelcomeView: View {
             Text(localized("Folderglass \(Updates.current) is the latest version.")).foregroundStyle(.secondary)
         case .failed:
             Text(localized("Couldn't reach GitHub to check for updates.")).foregroundStyle(.secondary)
-        case .available(let version, let page):
+        case .installing:
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text(localized("Updating…")).foregroundStyle(.secondary) }
+        case .installFailed(let page):
+            HStack {
+                Text(localized("The update couldn't be installed.")).foregroundStyle(.secondary)
+                Spacer()
+                Button(localized("Download")) { NSWorkspace.shared.open(page) }
+            }
+        case .available(let version, let page, let archive):
             HStack {
                 Text(localized("Folderglass \(version) is available.")).fontWeight(.medium)
                 Spacer()
-                if Updates.installedWithHomebrew {
-                    Button(localized("Copy “\(Updates.brewCommand)”")) {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(Updates.brewCommand, forType: .string)
+                if let prefix = Updates.homebrewPrefix {
+                    Button(localized("Update in Terminal")) { Updates.upgradeWithHomebrew(prefix: prefix) }
+                        .keyboardShortcut(.defaultAction)
+                } else if let archive, SelfUpdate.canReplace(Bundle.main.bundleURL) {
+                    Button(localized("Update and Relaunch")) {
+                        update = .installing
+                        Task { if await !Updates.install(from: archive) { update = .installFailed(page: page) } }
                     }
+                    .keyboardShortcut(.defaultAction)
                 } else {
                     Button(localized("Download")) { NSWorkspace.shared.open(page) }.keyboardShortcut(.defaultAction)
                 }
