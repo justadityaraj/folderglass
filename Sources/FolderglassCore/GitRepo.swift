@@ -50,7 +50,7 @@ public enum GitReader {
             branch: branch,
             head: head,
             lastCommit: commit,
-            status: status(root: root, gitDir: gitDir, headTree: head == nil ? treeHash([], prefix: 0) : head.flatMap { headTree($0, in: commonDir) }, budget: statusBudget),
+            status: status(root: root, gitDir: gitDir, headTree: head.map { headTree($0, in: commonDir) } ?? unbornTree(commonDir), budget: statusBudget),
             remote: remote(in: commonDir)
         )
     }
@@ -122,6 +122,10 @@ public enum GitReader {
         let message = parts.dropFirst().joined(separator: "\n\n")
         let subject = message.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init) ?? ""
         return GitCommit(hash: hash, subject: subject, author: author, date: date)
+    }
+
+    static func unbornTree(_ commonDir: URL) -> Data? {
+        FileManager.default.fileExists(atPath: commonDir.appending(path: "reftable").path) ? nil : treeHash([], prefix: 0)
     }
 
     static func headTree(_ commit: String, in commonDir: URL) -> Data? {

@@ -146,6 +146,13 @@ write("new\n", to: stagedRepo.appending(path: "later.txt"))
 run(["git", "add", "-N", "later.txt"], in: stagedRepo)
 check(stagedStatus()?.staged == false, "intent-to-add files are not staged (got \(String(describing: stagedStatus())))")
 
+let reftable = root.appending(path: "reftable")
+write("one\n", to: reftable.appending(path: "a.txt"))
+run(["git", "init", "-q", "-b", "main", "--ref-format=reftable"], in: reftable)
+run(["git", "add", "."], in: reftable)
+run(git + ["commit", "-q", "-m", "Reftable"], in: reftable)
+check(GitReader.read(reftable)?.status?.staged == false, "reftable refs we can't read never claim staged (got \(String(describing: GitReader.read(reftable)?.status)))")
+
 let zip = root.appending(path: "bundle.zip")
 run(["ditto", "-c", "-k", "--keepParent", root.appending(path: "assets").path, zip.path], in: root)
 let zipped = ZipListing.summary(of: zip)
