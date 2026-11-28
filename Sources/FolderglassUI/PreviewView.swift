@@ -355,7 +355,11 @@ enum Format {
 
     static func gitStatus(_ status: GitStatus) -> String {
         if status.isClean { return localized("clean") }
-        return [status.modified > 0 ? localized("\(status.modified) modified") : nil, status.deleted > 0 ? localized("\(status.deleted) deleted") : nil]
+        return [
+            status.staged ? localized("staged") : nil,
+            status.modified > 0 ? localized("\(status.modified) modified") : nil,
+            status.deleted > 0 ? localized("\(status.deleted) deleted") : nil,
+        ]
             .compactMap { $0 }.joined(separator: ", ")
     }
 

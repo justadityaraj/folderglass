@@ -12,13 +12,15 @@ public struct GitCommit: Sendable, Equatable {
 public struct GitStatus: Sendable, Equatable {
     public let modified: Int
     public let deleted: Int
+    public let staged: Bool
 
-    public init(modified: Int, deleted: Int) {
+    public init(modified: Int, deleted: Int, staged: Bool = false) {
         self.modified = modified
         self.deleted = deleted
+        self.staged = staged
     }
 
-    public var isClean: Bool { modified == 0 && deleted == 0 }
+    public var isClean: Bool { modified == 0 && deleted == 0 && !staged }
 }
 
 public struct GitInfo: Sendable {
@@ -48,7 +50,7 @@ public enum GitReader {
             branch: branch,
             head: head,
             lastCommit: commit,
-            status: status(root: root, gitDir: gitDir, budget: statusBudget),
+            status: status(root: root, gitDir: gitDir, headTree: head == nil ? treeHash([], prefix: 0) : head.flatMap { headTree($0, in: commonDir) }, budget: statusBudget),
             remote: remote(in: commonDir)
         )
     }
@@ -120,6 +122,12 @@ public enum GitReader {
         let message = parts.dropFirst().joined(separator: "\n\n")
         let subject = message.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init) ?? ""
         return GitCommit(hash: hash, subject: subject, author: author, date: date)
+    }
+
+    static func headTree(_ commit: String, in commonDir: URL) -> Data? {
+        guard let body = object(commit, in: commonDir),
+              let line = String(data: body.prefix(46), encoding: .utf8), line.hasPrefix("tree ") else { return nil }
+        return Data(hex: String(line.dropFirst(5).prefix(40)))
     }
 
     static func reflogCommit(_ gitDir: URL, head: String?) -> GitCommit? {
@@ -217,7 +225,13 @@ public enum GitReader {
         return written > 0 ? output.prefix(written) : nil
     }
 
-    static func status(root: URL, gitDir: URL, budget: TimeInterval) -> GitStatus? {
+    struct IndexEntry {
+        let path: [UInt8]
+        let mode: UInt32
+        let sha: Data
+    }
+
+    static func status(root: URL, gitDir: URL, headTree: Data?, budget: TimeInterval) -> GitStatus? {
         guard let index = try? Data(contentsOf: gitDir.appending(path: "index"), options: .alwaysMapped),
               index.count >= 12, index.prefix(4) == Data("DIRC".utf8) else { return nil }
         let version = index.uint32(at: 4)
@@ -228,6 +242,8 @@ public enum GitReader {
         var modified = 0
         var deleted = 0
         var previousPath = [UInt8]()
+        var entries = [IndexEntry]()
+        var unmerged = false
 
         for _ in 0..<count {
             guard position + 62 <= index.count else { return nil }
@@ -260,6 +276,11 @@ public enum GitReader {
             }
 
             let stage = (flags >> 12) & 0x3
+            if stage != 0 {
+                unmerged = true
+            } else if extraFlags & 0x2000 == 0 {
+                entries.append(IndexEntry(path: pathBytes, mode: mode, sha: sha))
+            }
             let skip = stage != 0 || flags & 0x8000 != 0 || extraFlags & 0x4000 != 0 || mode & 0o170000 == 0o160000
             if skip { continue }
 
@@ -279,7 +300,31 @@ public enum GitReader {
                 }
             }
         }
-        return GitStatus(modified: modified, deleted: deleted)
+        let staged = unmerged || headTree.map { treeHash(entries[...], prefix: 0) != $0 } ?? false
+        return GitStatus(modified: modified, deleted: deleted, staged: staged)
+    }
+
+    static func treeHash(_ entries: ArraySlice<IndexEntry>, prefix: Int) -> Data {
+        var body = Data()
+        var rest = entries
+        while let first = rest.first {
+            let name = first.path[prefix...]
+            let isSparseDirectory = first.mode & 0o170000 == 0o040000
+            if !isSparseDirectory, let slash = name.firstIndex(of: UInt8(ascii: "/")) {
+                let directory = first.path[...slash]
+                let end = rest.firstIndex { !$0.path.starts(with: directory) } ?? rest.endIndex
+                body += Data("40000 ".utf8) + name[..<slash] + [0] + treeHash(rest[..<end], prefix: slash + 1)
+                rest = rest[end...]
+            } else {
+                let entryName = isSparseDirectory && name.last == UInt8(ascii: "/") ? name.dropLast() : name
+                body += Data("\(String(first.mode, radix: 8)) ".utf8) + entryName + [0] + first.sha
+                rest = rest.dropFirst()
+            }
+        }
+        var hasher = Insecure.SHA1()
+        hasher.update(data: Data("tree \(body.count)\0".utf8))
+        hasher.update(data: body)
+        return Data(hasher.finalize())
     }
 
     static func varint(_ data: Data, at offset: Int) -> (value: Int, end: Int)? {

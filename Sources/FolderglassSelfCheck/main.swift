@@ -122,6 +122,30 @@ write("changed\nand longer\n", to: manyFiles.appending(path: "src/app/two.swift"
 try? FileManager.default.removeItem(at: manyFiles.appending(path: deepPath))
 check(GitReader.read(manyFiles)?.status == GitStatus(modified: 1, deleted: 1), "index v4 decodes prefix-compressed paths (got \(String(describing: GitReader.read(manyFiles)?.status)))")
 
+let stagedRepo = root.appending(path: "staged")
+for path in ["a-b.txt", "a/x.txt", "a/deeper/y.txt", "a0.txt", "bin/run.sh", "notes.md"] {
+    write("\(path)\n", to: stagedRepo.appending(path: path))
+}
+try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: stagedRepo.appending(path: "bin/run.sh").path)
+try? FileManager.default.createSymbolicLink(atPath: stagedRepo.appending(path: "link").path, withDestinationPath: "notes.md")
+run(["git", "init", "-q", "-b", "main"], in: stagedRepo)
+run(["git", "add", "."], in: stagedRepo)
+func stagedStatus() -> GitStatus? { GitReader.read(stagedRepo)?.status }
+check(stagedStatus() == GitStatus(modified: 0, deleted: 0, staged: true), "files added before the first commit are staged (got \(String(describing: stagedStatus())))")
+run(git + ["commit", "-q", "-m", "Tree with dirs, an executable and a symlink"], in: stagedRepo)
+check(stagedStatus() == GitStatus(modified: 0, deleted: 0), "index tree matches HEAD after a commit (got \(String(describing: stagedStatus())))")
+write("edited\n", to: stagedRepo.appending(path: "a/deeper/y.txt"))
+run(["git", "add", "a/deeper/y.txt"], in: stagedRepo)
+check(stagedStatus() == GitStatus(modified: 0, deleted: 0, staged: true), "git add of an edit is staged, not clean (got \(String(describing: stagedStatus())))")
+check(stagedStatus()?.isClean == false, "staged changes are not clean")
+run(git + ["commit", "-q", "-m", "Edit"], in: stagedRepo)
+run(["git", "rm", "-q", "--cached", "notes.md"], in: stagedRepo)
+check(stagedStatus() == GitStatus(modified: 0, deleted: 0, staged: true), "removing a file from the index is staged (got \(String(describing: stagedStatus())))")
+run(["git", "add", "notes.md"], in: stagedRepo)
+write("new\n", to: stagedRepo.appending(path: "later.txt"))
+run(["git", "add", "-N", "later.txt"], in: stagedRepo)
+check(stagedStatus()?.staged == false, "intent-to-add files are not staged (got \(String(describing: stagedStatus())))")
+
 let zip = root.appending(path: "bundle.zip")
 run(["ditto", "-c", "-k", "--keepParent", root.appending(path: "assets").path, zip.path], in: root)
 let zipped = ZipListing.summary(of: zip)
