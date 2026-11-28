@@ -210,6 +210,37 @@ check(!Version.isNewer("v0.2.0", than: "0.2.0"), "same version is not newer")
 check(!Version.isNewer("0.1.9", than: "0.2.0"), "older version is not newer")
 check(Version.isNewer("1.0", than: "0.9.9"), "shorter version strings compare")
 
+let updates = root.appending(path: "updates")
+func makeApp(_ url: URL, version: String = "1.0") {
+    write("""
+    <?xml version="1.0" encoding="UTF-8"?>
+    <plist version="1.0"><dict>
+    <key>CFBundleIdentifier</key><string>com.example.Plain</string>
+    <key>CFBundleShortVersionString</key><string>\(version)</string>
+    </dict></plist>
+    """, to: url.appending(path: "Contents/Info.plist"))
+}
+let plainApp = updates.appending(path: "Plain.app")
+makeApp(plainApp)
+let calculator = URL(fileURLWithPath: "/System/Applications/Calculator.app")
+check(SelfUpdate.canReplace(plainApp), "app in a writable folder can replace itself")
+check(!SelfUpdate.canReplace(calculator), "app on the read-only system volume cannot replace itself")
+let translocated = updates.appending(path: "AppTranslocation/ABC/d/Plain.app")
+makeApp(translocated)
+check(!SelfUpdate.canReplace(translocated), "translocated app cannot replace itself")
+check(SelfUpdate.problem(installing: plainApp, over: plainApp) == .unsigned, "unsigned install cannot self-update")
+check(SelfUpdate.problem(installing: plainApp, over: calculator) == .unsigned, "install without a team ID cannot self-update")
+check(SelfUpdate.homebrewPrefix(of: URL(fileURLWithPath: "/opt/homebrew/Cellar/folderglass/0.3.1/Folderglass.app"))?.path == "/opt/homebrew", "Homebrew prefix from the Cellar path")
+check(SelfUpdate.homebrewPrefix(of: plainApp) == nil, "no Homebrew prefix outside the Cellar")
+check(SelfUpdate.homebrewScript(prefix: URL(fileURLWithPath: "/opt/home'brew")).contains(#"'/opt/home'\''brew/bin/brew' upgrade folderglass"#), "Homebrew script quotes the prefix")
+let archive = updates.appending(path: "Plain.zip")
+run(["ditto", "-c", "-k", "--keepParent", plainApp.path, archive.path], in: updates)
+let unpacked = try? SelfUpdate.unpack(archive, into: updates.appending(path: "unpacked"))
+check(unpacked?.lastPathComponent == "Plain.app", "unpack finds the app in the archive")
+let notAnApp = updates.appending(path: "empty.zip")
+write("not a zip", to: notAnApp)
+check((try? SelfUpdate.unpack(notAnApp, into: updates.appending(path: "broken"))) == nil, "unpack rejects an archive without an app")
+
 let options = root.appending(path: "options")
 write(String(repeating: "a", count: 100), to: options.appending(path: "top.txt"))
 write(String(repeating: "b", count: 900), to: options.appending(path: "nested/deep.txt"))
