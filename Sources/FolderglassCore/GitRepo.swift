@@ -221,12 +221,13 @@ public enum GitReader {
         guard let index = try? Data(contentsOf: gitDir.appending(path: "index"), options: .alwaysMapped),
               index.count >= 12, index.prefix(4) == Data("DIRC".utf8) else { return nil }
         let version = index.uint32(at: 4)
-        guard version == 2 || version == 3 else { return nil }
+        guard (2...4).contains(version) else { return nil }
         let count = Int(index.uint32(at: 8))
         let started = Date()
         var position = 12
         var modified = 0
         var deleted = 0
+        var previousPath = [UInt8]()
 
         for _ in 0..<count {
             guard position + 62 <= index.count else { return nil }
@@ -237,16 +238,26 @@ public enum GitReader {
             let size = index.uint32(at: position + 36)
             let sha = index.subdata(in: index.startIndex + position + 40..<index.startIndex + position + 60)
             let flags = UInt16(index[index.startIndex + position + 60]) << 8 | UInt16(index[index.startIndex + position + 61])
-            let extended = version == 3 && flags & 0x4000 != 0
+            let extended = version >= 3 && flags & 0x4000 != 0
             guard position + (extended ? 64 : 62) <= index.count else { return nil }
             let extraFlags: UInt16 = extended
                 ? UInt16(index[index.startIndex + position + 62]) << 8 | UInt16(index[index.startIndex + position + 63])
                 : 0
-            let nameStart = position + (extended ? 64 : 62)
+            var nameStart = position + (extended ? 64 : 62)
+            var strip = previousPath.count
+            if version == 4 {
+                guard let prefix = varint(index, at: nameStart), prefix.value <= previousPath.count else { return nil }
+                (strip, nameStart) = prefix
+            }
             guard let nul = index[(index.startIndex + nameStart)...].firstIndex(of: 0) else { return nil }
-            let path = String(decoding: index[(index.startIndex + nameStart)..<nul], as: UTF8.self)
-            let nameLength = nul - index.startIndex - nameStart
-            position += ((nameStart - position) + nameLength + 8) & ~7
+            let pathBytes = Array(previousPath.dropLast(strip)) + index[(index.startIndex + nameStart)..<nul]
+            previousPath = pathBytes
+            let path = String(decoding: pathBytes, as: UTF8.self)
+            if version == 4 {
+                position = nul - index.startIndex + 1
+            } else {
+                position += ((nameStart - position) + pathBytes.count + 8) & ~7
+            }
 
             let stage = (flags >> 12) & 0x3
             let skip = stage != 0 || flags & 0x8000 != 0 || extraFlags & 0x4000 != 0 || mode & 0o170000 == 0o160000
@@ -269,6 +280,20 @@ public enum GitReader {
             }
         }
         return GitStatus(modified: modified, deleted: deleted)
+    }
+
+    static func varint(_ data: Data, at offset: Int) -> (value: Int, end: Int)? {
+        var position = offset
+        guard position < data.count else { return nil }
+        var byte = data[data.startIndex + position]
+        var value = Int(byte & 0x7F)
+        while byte & 0x80 != 0 {
+            position += 1
+            guard position < data.count, value < Int.max >> 8 else { return nil }
+            byte = data[data.startIndex + position]
+            value = (value + 1) << 7 | Int(byte & 0x7F)
+        }
+        return (value, position + 1)
     }
 
     static func blobHash(_ file: URL, size: Int) -> Data? {

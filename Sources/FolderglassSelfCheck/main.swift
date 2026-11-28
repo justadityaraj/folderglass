@@ -108,6 +108,20 @@ let worktree = root.appending(path: "wt")
 run(["git", "worktree", "add", "-q", "-b", "feature", worktree.path], in: repo)
 check(GitReader.read(worktree)?.branch == "feature", "linked worktree reads its own branch")
 
+let manyFiles = root.appending(path: "manyfiles")
+let deepPath = "src/" + String(repeating: "nested-folder/", count: 12) + "deep.txt"
+for path in ["src/app/one.swift", "src/app/two.swift", "src/lib/util.swift", "zeta.txt", deepPath] {
+    write("\(path)\n", to: manyFiles.appending(path: path))
+}
+run(["git", "init", "-q", "-b", "main"], in: manyFiles)
+run(["git", "add", "."], in: manyFiles)
+run(git + ["commit", "-q", "-m", "Many files"], in: manyFiles)
+run(["git", "update-index", "--index-version", "4"], in: manyFiles)
+check(GitReader.read(manyFiles)?.status == GitStatus(modified: 0, deleted: 0), "index v4 checkout is clean (got \(String(describing: GitReader.read(manyFiles)?.status)))")
+write("changed\nand longer\n", to: manyFiles.appending(path: "src/app/two.swift"))
+try? FileManager.default.removeItem(at: manyFiles.appending(path: deepPath))
+check(GitReader.read(manyFiles)?.status == GitStatus(modified: 1, deleted: 1), "index v4 decodes prefix-compressed paths (got \(String(describing: GitReader.read(manyFiles)?.status)))")
+
 let zip = root.appending(path: "bundle.zip")
 run(["ditto", "-c", "-k", "--keepParent", root.appending(path: "assets").path, zip.path], in: root)
 let zipped = ZipListing.summary(of: zip)
