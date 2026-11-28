@@ -22,7 +22,7 @@ struct ImageGrid: View {
             }
             .padding(4)
             if total > items.count {
-                Text("Showing \(items.count) of \(total.formatted()) images").font(.caption).foregroundStyle(.secondary).padding(8)
+                Text(localized("Showing \(items.count) of \(total) images")).font(.caption).foregroundStyle(.secondary).padding(8)
             }
         }
     }

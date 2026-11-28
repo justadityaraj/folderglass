@@ -3,6 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 swift run -c release FolderglassSelfCheck
+strings=Sources/FolderglassUI/Resources
+keys() { plutil -convert xml1 -o - "$1" | sed -n 's|.*<key>\(.*\)</key>.*|\1|p' | sort; }
+for lproj in "$strings"/*.lproj; do
+  diff <(keys "$strings/en.lproj/Localizable.strings") <(keys "$lproj/Localizable.strings") >/dev/null || { echo "$lproj/Localizable.strings has different keys from en"; exit 1; }
+done
 swift build -c release --arch arm64 --arch x86_64 --product Folderglass
 swift build -c release --arch arm64 --arch x86_64 --product FolderglassPreview
 bin=$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)
@@ -15,6 +20,9 @@ cp "$bin/Folderglass" "$app/Contents/MacOS/Folderglass"
 cp Resources/Info.plist "$app/Contents/Info.plist"
 cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 cp "$bin/FolderglassPreview" "$appex/Contents/MacOS/FolderglassPreview"
+mkdir -p "$appex/Contents/Resources"
+cp -R "$bin/Folderglass_FolderglassUI.bundle" "$app/Contents/Resources/"
+cp -R "$bin/Folderglass_FolderglassUI.bundle" "$appex/Contents/Resources/"
 cp Resources/Preview-Info.plist "$appex/Contents/Info.plist"
 identity="${SIGN_IDENTITY:--}"
 sign=(codesign --force --sign "$identity")

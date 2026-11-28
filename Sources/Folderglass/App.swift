@@ -1,5 +1,6 @@
 import AppKit
 import FolderglassCore
+import FolderglassUI
 import SwiftUI
 
 @main
@@ -94,12 +95,12 @@ enum Updates {
 extension UserSettings.StartTab {
     var title: String {
         switch self {
-        case .automatic: "Automatic"
-        case .contents: "Contents"
-        case .largest: "Largest"
-        case .recent: "Recent"
-        case .readme: "README"
-        case .images: "Images"
+        case .automatic: localized("Automatic")
+        case .contents: localized("Contents")
+        case .largest: localized("Largest")
+        case .recent: localized("Recent")
+        case .readme: localized("README")
+        case .images: localized("Images")
         }
     }
 }
@@ -107,10 +108,10 @@ extension UserSettings.StartTab {
 extension UserSettings.ContentsSort {
     var title: String {
         switch self {
-        case .size: "Size"
-        case .name: "Name"
-        case .modified: "Date Modified"
-        case .items: "Item Count"
+        case .size: localized("Size")
+        case .name: localized("Name")
+        case .modified: localized("Date Modified")
+        case .items: localized("Item Count")
         }
     }
 }
@@ -127,18 +128,18 @@ struct WelcomeView: View {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Folderglass").font(.largeTitle.weight(.bold))
-                    Text("See inside any folder with Quick Look").foregroundStyle(.secondary)
+                    Text(localized("See inside any folder with Quick Look")).foregroundStyle(.secondary)
                 }
             }
 
             HStack(spacing: 8) {
                 Image(systemName: enabled ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .foregroundStyle(enabled ? .green : .orange)
-                Text(enabled ? "Quick Look extension is on" : "Quick Look extension is off")
+                Text(enabled ? localized("Quick Look extension is on") : localized("Quick Look extension is off"))
                     .font(.headline)
                 Spacer()
                 if !enabled {
-                    Button("Turn On") {
+                    Button(localized("Turn On")) {
                         Extension.enable()
                         enabled = Extension.isEnabled
                     }
@@ -149,43 +150,41 @@ struct WelcomeView: View {
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
 
             VStack(alignment: .leading, spacing: 8) {
-                Label("Select a folder in Finder and press Space.", systemImage: "space")
-                Label("Git repos show the branch, last commit and changes.", systemImage: "arrow.triangle.branch")
-                Label("README, Markdown and zip files preview too.", systemImage: "doc.richtext")
+                Label(localized("Select a folder in Finder and press Space."), systemImage: "space")
+                Label(localized("Git repos show the branch, last commit and changes."), systemImage: "arrow.triangle.branch")
+                Label(localized("README, Markdown and zip files preview too."), systemImage: "doc.richtext")
             }
             .foregroundStyle(.secondary)
 
-            settingsSection("Preview") {
-                row("Show hidden files") { Toggle("", isOn: $settings.showHiddenFiles) }
-                row("Open on tab") {
+            settingsSection(localized("Preview")) {
+                row(localized("Show hidden files")) { Toggle("", isOn: $settings.showHiddenFiles) }
+                row(localized("Open on tab")) {
                     Picker("", selection: $settings.startTab) {
                         ForEach(UserSettings.StartTab.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .fixedSize()
                 }
-                row("Sort Contents by") {
+                row(localized("Sort Contents by")) {
                     Picker("", selection: $settings.contentsSort) {
                         ForEach(UserSettings.ContentsSort.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .fixedSize()
                 }
-                row("Stop counting after") {
+                row(localized("Stop counting after")) {
                     Picker("", selection: $settings.scanSeconds) {
-                        Text("5 seconds").tag(5.0)
-                        Text("15 seconds").tag(15.0)
-                        Text("30 seconds").tag(30.0)
+                        ForEach([5, 15, 30], id: \.self) { Text(localized("\($0) seconds")).tag(Double($0)) }
                     }
                     .fixedSize()
                 }
-                row("Count only the top level on network drives") { Toggle("", isOn: $settings.skipNetworkDrives) }
+                row(localized("Count only the top level on network drives")) { Toggle("", isOn: $settings.skipNetworkDrives) }
             }
 
-            settingsSection("General") {
-                row("Check for updates when Folderglass opens") { Toggle("", isOn: $settings.checkForUpdates) }
+            settingsSection(localized("General")) {
+                row(localized("Check for updates when Folderglass opens")) { Toggle("", isOn: $settings.checkForUpdates) }
                 HStack {
-                    Button("Check for Updates") { Task { update = .checking; update = await Updates.check() } }
+                    Button(localized("Check for Updates")) { Task { update = .checking; update = await Updates.check() } }
                         .disabled(update == .checking)
-                    Button("Reset Quick Look") {
+                    Button(localized("Reset Quick Look")) {
                         Extension.reset()
                         enabled = Extension.isEnabled
                         didReset = true
@@ -196,8 +195,8 @@ struct WelcomeView: View {
             }
 
             HStack {
-                Button("Try It on a Folder…", action: chooseFolder)
-                Button("Extension Settings…") {
+                Button(localized("Try It on a Folder…"), action: chooseFolder)
+                Button(localized("Extension Settings…")) {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
                 }
                 Spacer()
@@ -240,24 +239,24 @@ struct WelcomeView: View {
     @ViewBuilder private var updateStatus: some View {
         switch update {
         case .idle:
-            if didReset { Text("Quick Look was reset. Try pressing Space on a folder again.").foregroundStyle(.secondary) }
+            if didReset { Text(localized("Quick Look was reset. Try pressing Space on a folder again.")).foregroundStyle(.secondary) }
         case .checking:
-            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Checking…").foregroundStyle(.secondary) }
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text(localized("Checking…")).foregroundStyle(.secondary) }
         case .upToDate:
-            Text("Folderglass \(Updates.current) is the latest version.").foregroundStyle(.secondary)
+            Text(localized("Folderglass \(Updates.current) is the latest version.")).foregroundStyle(.secondary)
         case .failed:
-            Text("Couldn't reach GitHub to check for updates.").foregroundStyle(.secondary)
+            Text(localized("Couldn't reach GitHub to check for updates.")).foregroundStyle(.secondary)
         case .available(let version, let page):
             HStack {
-                Text("Folderglass \(version) is available.").fontWeight(.medium)
+                Text(localized("Folderglass \(version) is available.")).fontWeight(.medium)
                 Spacer()
                 if Updates.installedWithHomebrew {
-                    Button("Copy “\(Updates.brewCommand)”") {
+                    Button(localized("Copy “\(Updates.brewCommand)”")) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(Updates.brewCommand, forType: .string)
                     }
                 } else {
-                    Button("Download") { NSWorkspace.shared.open(page) }.keyboardShortcut(.defaultAction)
+                    Button(localized("Download")) { NSWorkspace.shared.open(page) }.keyboardShortcut(.defaultAction)
                 }
             }
         }

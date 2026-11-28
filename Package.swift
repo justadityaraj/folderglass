@@ -3,10 +3,11 @@ import PackageDescription
 
 let package = Package(
     name: "Folderglass",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "FolderglassCore"),
-        .target(name: "FolderglassUI", dependencies: ["FolderglassCore"]),
+        .target(name: "FolderglassUI", dependencies: ["FolderglassCore"], resources: [.process("Resources")]),
         .executableTarget(name: "Folderglass", dependencies: ["FolderglassCore", "FolderglassUI"]),
         .executableTarget(
             name: "FolderglassPreview",

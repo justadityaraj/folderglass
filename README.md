@@ -96,6 +96,19 @@ cd folderglass
 
 `swift scripts/demo-data.swift build/demo` makes the sample folders used in the screenshots.
 
+## Languages
+
+Folderglass follows your Mac's language. It ships in English and Simplified Chinese (简体中文).
+
+To add a language:
+
+1. Copy `Sources/FolderglassUI/Resources/en.lproj` to a folder named for the language code, for example `ja.lproj`. If the language has plural forms like "1 file" and "2 files", translate `Localizable.stringsdict` too; if not, delete it.
+2. Translate the right-hand side of each line in `Localizable.strings`. Keep the translations short, because the preview is 820 points wide.
+3. Add the language code to `CFBundleLocalizations` in `Resources/Info.plist` and `Resources/Preview-Info.plist`.
+4. Run `./scripts/build.sh --install`. The build stops if a language has different keys from English. Switch Folderglass to the new language in System Settings → General → Language & Region → Applications.
+
+A native speaker should review each language before it ships.
+
 ## Signing
 
 Releases from 0.1.3 on are signed with a Developer ID certificate and notarized by Apple, so they open without a security warning. The certificate belongs to the Apple Developer account of Swagloop Ventures Private Limited, a company I'm a director of. It's the developer account I already have, and it saves you the Open Anyway step.
